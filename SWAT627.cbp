@@ -1,0 +1,950 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="UN-SWAT627" />
+		<Option pch_mode="2" />
+		<Option compiler="gfortran" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin/Debug/SWAT627" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gfortran" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option output="bin/Release/SWAT627" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gfortran" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-ffree-line-length-none" />
+			<Add option="-ffixed-line-length-none" />
+			<Add option="-Wall" />
+		</Compiler>
+		<Unit filename="rev627_source/NCsed_leach.f90">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/addh.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/albedo.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/allocate_parms.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/alph.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/anfert.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/apex_day.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/apply.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/ascrv.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/atri.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/aunif.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/autoirr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/aveval.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/bacteria.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/biofilm.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/biozone.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/bmp_det_pond.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/bmp_ri_pond.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/bmp_sand_filter.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/bmp_sed_pond.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/bmp_wet_pond.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/bmpfixed.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/bmpinit.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/buffer.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/burnop.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/canopyint.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/caps.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/carbon_new.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/carbon_zhang2.f90">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/cfactor.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/chkcst.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/clgen.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/clicon.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/command.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/conapply.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/confert.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/crackflow.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/crackvol.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/curno.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/dailycn.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/decay.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/depstor.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/distrib_bmps.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/dormant.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/drains.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/dstn1.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/ee.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/eiusle.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/enrsb.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/erfc.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/estimate_ksat.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/etact.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/etpot.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/expo.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/fert.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/filter.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/filtw.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/finalbal.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/gcycl.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/getallo.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/grass_wway.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/graze.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/grow.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/gw_no3.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/gwmod.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/gwmod_deep.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/gwnutr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/h2omgt_init.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/harvestop.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/harvgrainop.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/harvkillop.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/header.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/headout.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/hhnoqual.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/hhwatqual.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/hmeas.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/hruaa.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/hruallo.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/hruday.f90">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/hrumon.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/hrupond.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/hrupondhr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/hruyr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/hydroinit.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/icl.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/impnd_init.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/impndaa.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/impndday.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/impndmon.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/impndyr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/irr_rch.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/irr_res.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/irrigate.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/irrsub.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/jdt.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/killop.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/lakeq.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/latsed.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/layersplit.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/lwqdef.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/main.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/modparm.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/ndenit.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/newtillmix.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/nfix.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/nitvol.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/nlch.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/nminrl.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/noqual.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/npup.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/nrain.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/nup.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/nuts.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/openwth.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/operatn.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/orgn.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/orgncswat.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/origtile.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/ovr_sed.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/percmacro.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/percmain.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/percmicro.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/pestlch.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/pestw.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/pesty.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/pgen.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/pgenhr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/pkq.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/plantmod.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/plantop.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/pmeas.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/pminrl.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/pminrl2.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/pond.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/pondhr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/pothole.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/potholehr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/print_hyd.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/psed.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/qman.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/ran1.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/rchaa.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rchday.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rchinit.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rchmon.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rchuse.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rchyr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/reachout.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readatmodep.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readbsn.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readchm.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readcnst.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readfcst.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readfert.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readfig.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readfile.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readgw.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readhru.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readinpt.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readlup.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readlwq.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readmgt.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readmon.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readops.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readpest.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readplant.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readpnd.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readres.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readrte.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readru.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readsdr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readsepticbz.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readseptwq.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readsno.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readsol.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readsub.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readswq.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readtill.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readurban.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readwgn.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readwus.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readwwq.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/readyr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/reccnst.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/recday.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rechour.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/recmon.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/recyear.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/regres.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/res.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/resbact.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/resetlu.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/reshr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/resinit.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/resnut.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rewind_init.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rhgen.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rootfr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/route.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/routels.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/routeunit.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/routres.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rsedaa.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rseday.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rsedmon.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rsedyr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rtbact.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rtday.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rteinit.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rthmusk.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rthpest.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rthr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rthsed.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rtmusk.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rtout.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rtpest.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rtsed.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rtsed_Molinas_Wu.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rtsed_bagnold.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rtsed_kodatie.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/rtsed_yangsand.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/sat_excess.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/save.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/saveconc.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/sched_mgt.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/schedule_ops.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/sim_initday.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/sim_inityr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/simulate.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/slrgen.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/smeas.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/snom.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/soil_chem.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/soil_par.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/soil_phys.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/soil_write.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/solp.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/solt.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/std1.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/std2.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/std3.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/stdaa.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/storeinitial.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/structure.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/sub_subbasin.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/subaa.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/subbasin.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/subday.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/submon.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/substor.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/subwq.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/subyr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/sumhyd.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/sumv.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/surface.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/surfst_h2o.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/surfstor.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/surq_daycn.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/surq_greenampt.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/swat2012.layout" />
+		<Unit filename="rev627_source/swbl.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/sweep.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/swu.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/tair.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/tgen.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/theta.f">
+			<Option weight="0" />
+		</Unit>
+		<Unit filename="rev627_source/tillfactor.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/tillmix.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/tmeas.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/tran.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/transfer.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/tstr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/ttcoef.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/ttcoef_wway.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/urb_bmp.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/urban.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/urbanhr.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/varinit.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/vbl.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/virtual.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/volq.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/washp.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/watbal.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/water_hru.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/watqual.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/watqual2.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/wattable.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/watuse.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/weatgn.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/wetlan.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/wmeas.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/wndgen.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/writea.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/writeaa.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/writed.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/writem.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/xmon.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/ysed.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/zero0.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/zero1.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/zero2.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/zero_urbn.f">
+			<Option weight="1" />
+		</Unit>
+		<Unit filename="rev627_source/zeroini.f">
+			<Option weight="1" />
+		</Unit>
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
