@@ -1,5 +1,5 @@
       subroutine etact
-      
+
 !!    ~ ~ ~ PURPOSE ~ ~ ~
 !!    this subroutine calculates potential plant transpiration for Priestley-
 !!    Taylor and Hargreaves ET methods, and potential and actual soil
@@ -12,10 +12,10 @@
 !!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !!    canstor(:)   |mm H2O        |amount of water held in canopy storage
 !!    elevb(:,:)   |m             |elevation at center of band in subbasin
-!!    elevb_fr(:,:)|none          |fraction of subbasin area within elevation 
+!!    elevb_fr(:,:)|none          |fraction of subbasin area within elevation
 !!                                |band
 !!    ep_max       |mm H2O        |maximum amount of transpiration (plant et)
-!!                                |that can occur on current day in HRU 
+!!                                |that can occur on current day in HRU
 !!    esco(:)      |none          |soil evaporation compensation factor
 !!    ihru         |none          |HRU number
 !!    ipet         |none          |code for potential ET method
@@ -28,14 +28,14 @@
 !!    pot_vol(:)   |m**3 H2O      |current volume of water stored in the
 !!                                |depression/impounded area
 !!    sno_hru(:)   |mm H2O        |amount of water in snow in HRU on current day
-!!    snoeb(:,:)   |mm H2O        |snow water content in elevation band on 
+!!    snoeb(:,:)   |mm H2O        |snow water content in elevation band on
 !!                                |current day
 !!    sol_cov(:)   |kg/ha         |amount of residue on soil surface
 !!    sol_fc(:,:)  |mm H2O        |amount of water available to plants in soil
 !!                                |layer at field capacity (fc - wp water)
 !!    sol_nly(:)   |none          |number of soil layers in profile
 !!    sol_no3(:,:) |kg N/ha       |amount of nitrogen stored in the nitrate
-!!                                |pool 
+!!                                |pool
 !!    sol_st(:,:)  |mm H2O        |amount of water stored in the soil layer on
 !!                                |current day
 !!    sol_z(:,:)   |mm            |depth to bottom of soil layer
@@ -56,7 +56,7 @@
 !!    sno_hru(:)   |mm H2O        |amount of water in snow in HRU on current day
 !!    sno3up       |kg N/ha       |amount of nitrate moving upward in the soil
 !!                                |profile in watershed
-!!    snoeb(:,:)   |mm H2O        |snow water content in elevation band on 
+!!    snoeb(:,:)   |mm H2O        |snow water content in elevation band on
 !!                                |current day
 !!    snoev        |mm H2O        |amount of water in snow lost through
 !!                                |sublimation on current day
@@ -96,7 +96,7 @@
 !!    sev          |mm H2O        |amount of evaporation from soil layer
 !!    sumsnoeb     |mm H2O        |amount of snow in elevation bands whose air
 !!                                |temperature is greater than 0 degrees C
-!!    xx           |none          |variable to hold intermediate calculation 
+!!    xx           |none          |variable to hold intermediate calculation
 !!                                |result
 !!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
@@ -208,20 +208,20 @@
           !! for elevation bands with temp > 0 deg C
           do ib = 1, 10
             if (elevb_fr(ib,hru_sub(j)) <= 0.) exit
-            if (tavband(ib,j) > 0.) then 
-              sumsnoeb = sumsnoeb +                                     
+            if (tavband(ib,j) > 0.) then
+              sumsnoeb = sumsnoeb +
      &                             snoeb(ib,j) * elevb_fr(ib,hru_sub(j))
             end if
           end do
-          
+
           !! compute sublimation from elevation bands
           if (sumsnoeb >= esleft .and. sumsnoeb > 0.01) then
             do ib = 1, 10
               if (elevb_fr(ib,hru_sub(j)) <= 0.) exit
               if (tavband(ib,j) > 0.) then
-                snoev = snoev + snoeb(ib,j) * (esleft / sumsnoeb) *     
+                snoev = snoev + snoeb(ib,j) * (esleft / sumsnoeb) *
      &                                           elevb_fr(ib,hru_sub(j))
-                snoeb(ib,j) = snoeb(ib,j) - snoeb(ib,j) * (esleft /     
+                snoeb(ib,j) = snoeb(ib,j) - snoeb(ib,j) * (esleft /
      &                                                         sumsnoeb)
               end if
             end do
@@ -242,6 +242,17 @@
       evzp = 0.
       eosl = 0.
       eosl = esleft
+
+      !!---------------OGXinSWAT Begin----------------------------
+      !!  Soil evaporation and transpiration
+      if (ievent>0) then
+        !SOLCOL(j)%EMAX = esleft
+        !SOLCOL(j)%TMAX = ep_max
+        return
+      endif
+      !!---------------OGXinSWAT End----------------------------
+
+
       do ly = 1, sol_nly(j)
 
         !! depth exceeds max depth for soil evap (esd)
@@ -251,13 +262,13 @@
         else
           dep = sol_z(ly-1,j)
         endif
-        
+
         if (dep < esd) then
           !! calculate evaporation from soil layer
           evz = 0.
           sev = 0.
           xx = 0.
-          evz = eosl * sol_z(ly,j) / (sol_z(ly,j) + Exp(2.374 -         
+          evz = eosl * sol_z(ly,j) / (sol_z(ly,j) + Exp(2.374 -
      &       .00713 * sol_z(ly,j)))
           sev = evz - evzp * esco(j)
           evzp = evz

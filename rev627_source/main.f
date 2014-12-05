@@ -76,6 +76,14 @@
       call readurban             !! read in the urban land types database
       call readseptwq            !! read in the septic types database
       call readlup
+
+      !!---------------OGXinSWAT Begin----------------------------
+      !!  open and read the soil material file
+      if (ievent>0) then
+
+      endif
+      !!---------------OGXinSWAT End----------------------------
+
       call readfig
       call readatmodep
       call readinpt

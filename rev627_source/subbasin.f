@@ -1,7 +1,7 @@
       subroutine subbasin
-      
+
 !!    ~ ~ ~ PURPOSE ~ ~ ~
-!!    this subroutine controls the simulation of the land phase of the 
+!!    this subroutine controls the simulation of the land phase of the
 !!    hydrologic cycle
 
 !!    ~ ~ ~ INCOMING VARIABLES ~ ~ ~
@@ -48,7 +48,7 @@
 !!                                  |day in HRU
 !!    nafert(:)      |none          |sequence number of auto-fert application
 !!                                  |within the year
-!!    nair(:)        |none          |sequence number of auto-irrigation 
+!!    nair(:)        |none          |sequence number of auto-irrigation
 !!                                  |application within the year
 !!    nfert(:)       |none          |sequence number of fertilizer application
 !!                                  |within the year
@@ -66,12 +66,12 @@
 !!                                  |pesticide application occurs
 !!    pot_fr(:)      |km2/km2       |fraction of HRU area that drains into
 !!                                  |pothole
-!!    pot_vol(:)     |m**3 H2O      |current volume of water stored in the 
+!!    pot_vol(:)     |m**3 H2O      |current volume of water stored in the
 !!                                  |depression/impounded area
 !!    precipday      |mm H2O        |precipitation for the day in HRU
 !!    qday           |mm H2O        |surface runoff loading to main channel from
 !!                                  |HRU for day
-!!    qtile          |mm H2O        |drainage tile flow in soil layer for the 
+!!    qtile          |mm H2O        |drainage tile flow in soil layer for the
 !!                                  |day
 !!    sci(:)         |none          |retention coefficient for CN method based
 !!                                  |on plant ET
@@ -97,7 +97,7 @@
 !!                               |into soil (enters soil)
 !!    nafert(:)   |none          |sequence number of auto-fert application
 !!                               |within the year
-!!    nair(:)     |none          |sequence number of auto-irrigation 
+!!    nair(:)     |none          |sequence number of auto-irrigation
 !!                               |application within the year
 !!    qdfr        |none          |fraction of water yield that is surface
 !!                               |runoff
@@ -114,7 +114,7 @@
 !!    gma         |kPa/deg C     |psychrometric constant
 !!    ho          |              |net radiation
 !!    j           |none          |HRU number
-!!    pet_alpha   |none          |alpha factor in Priestley-Taylor ET 
+!!    pet_alpha   |none          |alpha factor in Priestley-Taylor ET
 !!                               |equation
 !!    tmpk        |deg K         |average temperature for the day in the HRU
 !!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -136,8 +136,8 @@
       real :: tmpk, d, gma, ho, pet_alpha, aphu, phuop
 
       ihru = 0
-      ihru = hru1(inum1) 
-      
+      ihru = hru1(inum1)
+
       call sub_subbasin
 
       do iihru = 1, hrutot(inum1)
@@ -157,19 +157,19 @@
                     tillage_days(ihru) = 0
               else
                     tillage_days(ihru) = tillage_days(ihru) + 1
-              end if                
+              end if
               !tillage_depth(ihru) = dtil
-              !tillage_switch(ihru) = .TRUE. 
+              !tillage_switch(ihru) = .TRUE.
           end if
       end if
-      !!by zhang DSSAT tillage  
-      !!====================== 
+      !!by zhang DSSAT tillage
+      !!======================
 
 
 
       call varinit
       if (icr(j) <= 0) icr(j) = 1
-      
+
       i_wtrhru = 0
       idplrot(icr(j),ihru) = idplt(j)
       if (idplt(j) /= 0) then
@@ -177,10 +177,10 @@
               i_wtrhru = 1
           end if
       endif
-      
+
 	if (i_wtrhru == 1) then
          call water_hru
-      else 
+      else
 
         !! Simulate land covers other than water
 
@@ -188,7 +188,7 @@
         if (tmpav(j) > 0. .and. phutot(hru_sub(j)) > 0.01) then
            phubase(j) = phubase(j) + tmpav(j) / phutot(hru_sub(j))
         end if
-        
+
         call schedule_ops
 
         !! calculate albedo for day
@@ -199,66 +199,119 @@
 
 !       if (ipot(j) /= j .and. imp_trig(nro(j),nrelease(j),j)==1)       &  Srini pothole
 !
-!     &        then             
-          !! calculate surface runoff if HRU is not impounded or an 
+!     &        then
+          !! calculate surface runoff if HRU is not impounded or an
           !! undrained depression--
           call surface
 
           !! add surface flow that was routed across the landscape on the previous day
        !!   qday = qday + surfq_ru(j)
        !!   surfq_ru(j) = 0.
-          
+
+        !!---------------OGXinSWAT----------------------------
+        !!  skip
+        if (ievent==0) then
           !! compute effective rainfall (amount that percs into soil)
           inflpcp = Max(0.,precipday - surfq(j))
+        endif
+        !!---------------OGXinSWAT----------------------------
 !        end if
-         
+
         !! perform management operations
         if (yr_skip(j) == 0) call operatn
-          
-        if (auto_wstr(j) > 1.e-6 .and. irrsc(j) > 2) call autoirr       
-        
-        !! perform soil water routing
-        call percmain
+
+        if (auto_wstr(j) > 1.e-6 .and. irrsc(j) > 2) call autoirr
+
+
+        !!---------------OGXinSWAT Begin----------------------------
+        !!  skip the soil water pocolation
+        if (ievent>0) then
+          precipdt=precipdt+aird(j)/nstep + pot_seep(j)/nstep   !!OGX: add the auto irrigation and pothole seepage
+        else
+          !! perform soil water routing
+          call percmain
+        endif
+        !!---------------OGXinSWAT End----------------------------
 
         !! compute evapotranspiration
         call etpot
 !        if (pot_vol(j) < 1.e-6) call etact
         call etact
 
+        !!---------------OGXinSWAT Begin----------------------------
+        !!  Soil evaporation and transpiration
+        if (ievent>0) then
+          !call TRS(j)
+          inflpcp = Max(0.,precipday - surfq(j))
+
+          !!irrigation runoff
+          surfq(j) = surfq(j) + qird(j)
+          qird(j) = 0.
+
+
+          !! calculate amount of surface runoff reaching main channel during day
+          !! (qday) and store the remainder
+          call surfst_h2o
+
+          !! calculate half-hour rainfall
+          if (precipday > 0.01) call alph(0)
+
+          if (qday > 0.0001) then
+            !! compute peak rate - peakr in m3/s
+            call pkq(0)
+          end if
+
+          if (qday > 0.0001 .and. peakr > 0.) then
+            !! compute transmission losses for non-HUMUS datasets
+            call tran
+            call eiusle
+
+      !! calculate sediment erosion by rainfall and overland flow
+            call ovr_sed
+          end if
+
+          call cfactor
+          if (surfq(j) > 1.e-6 .and. peakr > 1.e-6) call ysed(0)
+
+          if (qday < 0.) qday = 0.
+
+        endif
+        !!---------------OGXinSWAT End----------------------------
+
         !! compute water table depth using climate drivers
         call wattable
 
         !! new CN method
-        if (icn == 1) then 
-        sci(j) = sci(j) + pet_day*exp(-cncoef_sub(hru_sub(j))*sci(j)/   
+        if (icn == 1) then
+        sci(j) = sci(j) + pet_day*exp(-cncoef_sub(hru_sub(j))*sci(j)/
      &    smx(j)) - precipday + qday + qtile + latq(j) + sepbtm(j)
-        else if (icn == 2) then 
-        sci(j) = sci(j) + pet_day*exp(-cncoef_sub(hru_sub(j))*sci(j)/   
+        else if (icn == 2) then
+        sci(j) = sci(j) + pet_day*exp(-cncoef_sub(hru_sub(j))*sci(j)/
      &    smx(j)) - precipday + qday + latq(j) + sepbtm(j) + qtile
         sci(j) = amin1(sci(j),smxco * smx(j))
-        end if 
-        
+        end if
+
         !! apply fertilizer/manure in continuous fert operation
         if (icfrt(j) == 1) then
           ndcfrt(j) = ndcfrt(j) + 1
           call confert
         end if
-        
+
         !! apply pesticide in continuous pest operation
-        if (icpst(j) == 1) then 
+        if (icpst(j) == 1) then
           ndcpst(j) = ndcpst(j) + 1
           call conapply
-        end if 
-        
+        end if
+
         !! remove biomass from grazing and apply manure
         if (igrz(j) == 1) then
           ndeat(j) = ndeat(j) + 1
           call graze
         end if
-       
+
         !! compute crop growth
         call plantmod
-        
+
         !! check for dormancy
         if (igro(j) == 1) call dormant
         !! compute actual ET for day in HRU
@@ -270,7 +323,7 @@
 !      write (120,12112) i,j,tmx(j),tmn(j),(sol_tmp(k,j),k=1,sol_nly(j))
 !12112  format (2i4,12f8.2)
 
-        !! compute nitrogen and phosphorus mineralization 
+        !! compute nitrogen and phosphorus mineralization
 
       if (cswat == 0) then
         call nminrl
@@ -278,14 +331,14 @@
 	if (cswat == 1) then
 		call carbon
 	end if
-	
+
 	!! Add by zhang
 	!!=================
 	if (cswat == 2) then
 	  call carbon_zhang2
 	end if
 	!! Add by zhang
-	!!=================	
+	!!=================
 
         call nitvol
         if (sol_P_model == 1) then
@@ -297,14 +350,14 @@
 !!    compute biozone processes in septic HRUs
 !!    if 1)current is septic hru and 2)  soil temperature is above zero
 	  if (isep_opt(j)/=0.and.iyr>=isep_iyr(j)) then
-	   if (sol_tmp(i_sep(j),j) > 0.) call biozone     
+	   if (sol_tmp(i_sep(j),j) > 0.) call biozone
 	  endif
 
         !! compute ground water contribution
         call gwmod
         call gwmod_deep
 
-        !! compute pesticide washoff   
+        !! compute pesticide washoff
         if (precipday >= 2.54) call washp
 
         !! compute pesticide degradation
@@ -322,10 +375,10 @@
 			call orgn(0)
 	    end if
 	    if (cswat == 1) then
-	    
+
 		    call orgncswat(0)
 		  end if
-		  
+
 		  !! Add by zhang
 		  !! ====================
 		  if (cswat == 2) then
@@ -361,17 +414,17 @@
 		     call urbanhr ! subdaily simulation J.Jeong 4/20/2009
 	     endif
 	  endif
-	  
+
 !! Srini Pothole
         !! compute undrained depression/impounded area (eg rice) processes
 !        if (pot_fr(j) > 0.) then
-!           if (ievent<3) then   
+!           if (ievent<3) then
 !          call pothole
 !           else
 !              call potholehr
 !           endif
 !        endif
-        
+
         !! compute sediment loading in lateral flow and add to sedyld
         call latsed
 
@@ -389,13 +442,13 @@
         !! add lateral flow that was routed across the landscape on the previous day
       !!  latq(j) = latq(j) + latq_ru(j)
       !!  latq_ru(j) = 0.
-        
+
         !! compute reduction in pollutants due to edge-of-field filter strip
         if (vfsi(j) >0.)then
           call filter
           if (filterw(j) > 0.) call buffer
         end if
-              if (vfsi(j) == 0. .and. filterw(j) > 0.) then 
+              if (vfsi(j) == 0. .and. filterw(j) > 0.) then
                 call filtw
                 call buffer
               end if
@@ -429,10 +482,10 @@
         else
            call hrupondhr
         endif
-        
-!       Srini pothole        
+
+!       Srini pothole
         if (pot_fr(j) > 0.) call pothole
-                
+
         xx = sed_con(j)+soln_con(j)+solp_con(j)+orgn_con(j)+orgp_con(j)
         if (xx > 1.e-6) then
           call urb_bmp
@@ -443,7 +496,7 @@
 
         !! perform water balance
         call watbal
-        
+
         !! qdayout is surface runoff leaving the hru - after wetlands, ponds, and potholes
         qdayout(j) = qday
 
@@ -456,14 +509,14 @@
       !! store reach loadings for new fig method
       call virtual
       aird(j) = 0.
-      
+
       ihru = ihru + 1
       end do
 
       !! route 2 landscape units
       if (ils2flag(inum1) > 0) then
       isub = inum1                        ! save the subbasin number
-      
+
       !! calculate outputs from hillslope
       ihout1 = mhyd_bsn + (inum1 - 1) * 4 ! first outflow hyd number
       ihout = ihout1                      ! outflow hyd number
@@ -474,21 +527,21 @@
       inum1s(ihout) = inum1
       inum2s(ihout) = inum2
       ihouts(ihout) = ihout
-      
+
       !! calculate outputs from valley bottom
       inum1 = 2                           ! landscape unit number
       ihout = ihout + 1                   ! outflow hyd number
       sumdaru = 0.
       do j = 1, hrutot(isub)
         sumdaru = sumdaru + hru_km(j)
-      end do 
+      end do
       daru_km(inum2,inum1) = sumdaru
       call routeunit                      ! valley bottom unit
       call sumhyd
       inum1s(ihout) = inum1
       inum2s(ihout) = inum2
       ihouts(ihout) = ihout
-      
+
       !! route output from hillslope across valley bottom
       ihout = ihout + 1                   ! outflow hyd number
       inum1 = 2                           ! valley bottom landscape unit
@@ -504,7 +557,7 @@
         sumk = sumk + usle_k(j) * hru_rufr(inum1,j)
         ovsl = ovsl + slsubbsn(j)
         ovs = ovs + hru_slp(j)
-      end do 
+      end do
       ovsl = ovsl / hrutot(isub)
       ovs = ovs / hrutot(isub)
       ru_k(isub,inum1) = sumk
@@ -518,9 +571,9 @@
       inum2s(ihout) = inum2
       inum3s(ihout) = inum3
       ihouts(ihout) = ihout
-      
+
       !! add routed with valley bottom loading
-      inum1 = ihout                       ! hyd from routed 
+      inum1 = ihout                       ! hyd from routed
       inum2 = ihout - 1                   ! hyd from loading
       ihout = ihout + 1                   ! outflow hyd number
       call addh                           ! add hyd's
@@ -528,11 +581,11 @@
       inum1s(ihout) = inum1
       inum2s(ihout) = inum2
       ihouts(ihout) = ihout
-      
+
       !! save landscape routed output in place of subbasin output for routing
       varoute(isub,:) = varoute(ihout,:)
       end if
-      
+
  1000 format(4i10,a10)
       return
       end

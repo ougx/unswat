@@ -1,9 +1,9 @@
       subroutine swu
-      
+
 !!    ~ ~ ~ PURPOSE ~ ~ ~
 !!    this subroutine distributes potential plant evaporation through
 !!    the root zone and calculates actual plant water use based on soil
-!!    water availability. Also estimates water stress factor.     
+!!    water availability. Also estimates water stress factor.
 
 !!    ~ ~ ~ INCOMING VARIABLES ~ ~ ~
 !!    name        |units         |definition
@@ -87,7 +87,7 @@
 !!    wuse(:)     |mm H2O        |water uptake by plants in each soil layer
 !!    xx          |mm H2O        |water uptake by plants from all layers
 !!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-    
+
 !!    ~ ~ ~ SUBROUTINES/FUNCTIONS CALLED ~ ~ ~
 !!    Intrinsic: Exp, Max
 
@@ -122,10 +122,10 @@
         sump = 0.
         wuse = 0.
         xx = 0.
- 
+
 !!  compute aeration stress
         if (sol_sw(j) > sol_sumfc(j)) then
-          satco = (sol_sw(j) - sol_sumfc(j)) / (sol_sumul(j) - 
+          satco = (sol_sw(j) - sol_sumfc(j)) / (sol_sumul(j) -
      &                                                 sol_sumfc(j))
           pl_aerfac = .85
           scparm = 100. * (satco - pl_aerfac) / (1.0001 - pl_aerfac)
@@ -136,6 +136,16 @@
             strsa(j) = 1.
           end if
         end if
+
+        !!---------------OGXinSWAT Begin----------------------------
+        !!  skip root water uptake
+        if (ievent>0) then
+          xx=SOLCOL(j)%EPACT
+          strsw(j) = xx / ep_max
+          ep_day = xx
+          return
+        endif
+        !!---------------OGXinSWAT End------------------------------
 
         do k = 1, sol_nly(j)
           if (ir > 0) exit
@@ -169,8 +179,8 @@
           !! aeration stress
 !         yy = air_str(idplt(j))
 !         satco = 100. * (sol_st(k,j) / sol_ul(k,j) - yy) / (1. - yy)
-!         if (satco > 0.) then 
-!           strsa(j) = 1. - (1. - (satco / (satco + Exp(5.1 - .082 * 
+!         if (satco > 0.) then
+!           strsa(j) = 1. - (1. - (satco / (satco + Exp(5.1 - .082 *
 !    &                                                      satco))))
 !         else
 !           strsa(j) = 1.

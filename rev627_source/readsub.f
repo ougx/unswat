@@ -1,5 +1,5 @@
       subroutine readsub
-      
+
 !!    ~ ~ ~ PURPOSE ~ ~ ~
 !!    this subroutine reads data from the HRU/subbasin general input file
 !!    (.sub). This file contains data related to general processes modeled
@@ -55,10 +55,10 @@
 !!    isgage(:)    |none         |subbasin radiation gage data code
 !!    itgage(:)    |none         |subbasin temp gage data code
 !!    iwgage(:)    |none         |subbasin wind speed gage data code
-!!    plaps(:)     |mm H2O/km    |precipitation lapse rate: precipitation 
-!!                               |change due to change in elevation 
+!!    plaps(:)     |mm H2O/km    |precipitation lapse rate: precipitation
+!!                               |change due to change in elevation
 !!    radinc(:,:) |MJ/m^2        |monthly solar radiation adjustment. Daily
-!!                               |radiation within the month is raised or 
+!!                               |radiation within the month is raised or
 !!                               |lowered by the specified amount. (used in
 !!                               |climate change studies)
 !!    rfinc(:,:)  |%             |monthly rainfall adjustment. Daily rainfall
@@ -77,8 +77,8 @@
 !!                                 for subbasin(:)
 !!                               | (range: -5.0/5.0)
 !!                               | where deg C refers to the air temperature
-!!    sub_sftmp(:)|deg C         |Snowfall temperature for subbasin(:)      
-!!                               | Mean air temperature at which precip is 
+!!    sub_sftmp(:)|deg C         |Snowfall temperature for subbasin(:)
+!!                               | Mean air temperature at which precip is
 !!                               | equally likely to be rain as snow/freezing
 !!                               | rain (range: -5.0/5.0)
 !!    sub_smtmp(:)|deg C         |Snow melt base temperature for subbasin(:)
@@ -90,7 +90,7 @@
 !!    sub_km(:)   |km**2         |area of subbasin in square kilometers
 !!    sub_lat(:)  |degrees       |latitude of subbasin
 !!    tlaps(:)    |deg C/km      |temperature lapse rate: temperature change
-!!                               |due to change in elevation 
+!!                               |due to change in elevation
 !!    tmpinc(:,:) |deg C         |monthly temperature adjustment. Daily maximum
 !!                               |and minimum temperatures within the month are
 !!                               |raised or lowered by the specified amount
@@ -161,11 +161,11 @@
           sub_smfmx(ib,i) = sub_smfmx(1,i)
           sub_smfmn(ib,i) = sub_smfmn(1,i)
           sub_sftmp(ib,i) = sub_sftmp(1,i)
-          sub_smtmp(ib,i) = sub_smtmp(1,i) 
+          sub_smtmp(ib,i) = sub_smtmp(1,i)
           sub_timp(ib,i) = sub_timp(1,i)
         end do
       else
-        read (101,5100) titldum                                      
+        read (101,5100) titldum
       end if
       read (101,5100) titldum
       read (101,*) sub_lat(i)
@@ -187,7 +187,7 @@
       read (101,5100) titldum
       read (101,5200) (ssnoeb(j), j = 1, 10)
       read (101,*) plaps(i)
-      read (101,*) tlaps(i) 
+      read (101,*) tlaps(i)
       read (101,*) sno_sub
       read (101,5100) titldum
       read (101,*) ch_ls
@@ -213,7 +213,7 @@
           endif
         endif
       endif
-      read (101,*) co2(i) 
+      read (101,*) co2(i)
       read (101,5100) titldum
       read (101,5200) (rfinc(i,mon),mon = 1,6)
       read (101,5100) titldum
@@ -275,7 +275,7 @@
 	      open (112,file=sdrfile)
 	      call readsdr
 	    end if
-          
+
           open (106,file=chmfile)
           open (107,file=solfile)
           open (108,file=hrufile)
@@ -286,12 +286,19 @@
           call readmgt
           call readsol
           call readgw
+
+          !!---------------OGXinSWAT Begin----------------------------
+          !!  open and read the soil file of each HRU
+          if (ievent>0) then
+
+          endif
+          !!---------------OGXinSWAT End----------------------------
           if (opsfile /= '             ') then
             call caps(opsfile)
             open (111,file=opsfile)
             call readops
           end if
-          
+
           ! set up variables for landscape routing
 !          if (ils_nofig == 1) then
             if (ils2(ihru) == 0) then
@@ -302,7 +309,7 @@
             end if
             daru_km(i,ils) = daru_km(i,ils) + hru_fr(j) * sub_km(i)
 !         end if
-          
+
           ! estimate drainage area for urban distributed bmps in hectares - jaehak
           if (urblu(ihru)>0) then
             kk=1
@@ -316,43 +323,43 @@
               if (kk>30) exit
             end do
             if(bmpdrain(ihru)==1) then
-              sub_ha_imp(i) = sub_ha_imp(i) + hru_ha(ihru)            
-     &            * fimp(urblu(ihru))               
-              sub_ha_urb(i) = sub_ha_urb(i) + hru_ha(ihru) 
+              sub_ha_imp(i) = sub_ha_imp(i) + hru_ha(ihru)
+     &            * fimp(urblu(ihru))
+              sub_ha_urb(i) = sub_ha_urb(i) + hru_ha(ihru)
            end if
           end if
-          
+
           ! HRU selection criteria for Irrigation by retention-irrigation basins
           if (num_ri(i)>0) then
-            if(sol_z(sol_nly(ihru),ihru)>300 !!    - soil thickness > 12 inches  
+            if(sol_z(sol_nly(ihru),ihru)>300 !!    - soil thickness > 12 inches
      &        .AND.sol_k(1,ihru)>0.76       !    - permeability > 0.03 inches/hr (=0.76mm/hr)
      &        .AND.hru_slp(ihru)<0.1        !!    - hru slope < 10%
      &        .AND.urblu(ihru)>0) then !urban LU
- 
+
                ri_luflg(ihru) = 1 !irrigate HRU
             end if
-            
+
             do kk=1,num_noirr(i)
                if (urbname(urblu(ihru)).eq.ri_nirr(i,kk)) then
                   ri_luflg(ihru) = 0 !exclude these land uses from irrigation
                end if
             end do
-            
+
             if (ri_luflg(ihru) == 1) then
-               ri_subkm(i) = ri_subkm(i) + hru_km(ihru)* 
+               ri_subkm(i) = ri_subkm(i) + hru_km(ihru)*
      &                       (1.-fimp(urblu(ihru))) !km2
             end if
           end if
 
           ! estimate impervious cover in the upstream drainage area for on-line bmps
           if (iurban(ihru) > 0) then
-             subdr_ickm(i) = subdr_ickm(i) + hru_km(ihru) 
+             subdr_ickm(i) = subdr_ickm(i) + hru_km(ihru)
      &                       *  fimp(urblu(ihru))
           end if
           ! estimate average Curve Number for the subbasin
           sub_cn2(i) = sub_cn2(i) + cn2(ihru) * hru_fr(ihru)
         end do      ! hru loop
-        
+
         !! set up routing unit fractions for landscape routing
         do j = jj, hrutot(i)
           ihru = nhru + j
@@ -361,14 +368,14 @@
           else
             ils = 2
           end if
-          
+
         end do
         if (ils == 2) then
           do j = jj, hrutot(i)
           hru_rufr(ils,ihru) = hru_fr(ihru) * sub_km(i) / daru_km(i,ils)
           end do
         end if
-      
+
 !!  routing changes gsm per jga 5/3/2010
 !!      irunits = 0
 !!      read (101,*,iostat=eof) titldum
@@ -376,14 +383,14 @@
 !!     if (irunits = = 1) then
 !!        call readfig_sub
 !!      endif
-      
+
 !!    set default values
       do ihru = jj, hrutot(i)
         if (re(ihru) <= 0.) re(ihru) = re_bsn
 	  if (sdrain(ihru) <= 0.) sdrain(ihru) = sdrain_bsn
 	  if (drain_co(ihru) <= 0.) drain_co(ihru) = drain_co_bsn
 	  if (pc(ihru) <= 0.) pc(ihru) = pc_bsn
-        if (latksatf(ihru) <= 0.) latksatf(ihru) = latksatf_bsn	
+        if (latksatf(ihru) <= 0.) latksatf(ihru) = latksatf_bsn
 	  if (sstmaxd(ihru) <= 0.) sstmaxd(ihru) = sstmaxd_bsn
       end do
       !     estimate drainage area for urban on-line bmps in square km
@@ -393,7 +400,7 @@
 !!    set default values
       if (sub_km(i) <= 0.) sub_km(i) = 1.
       if (harg_petco(i) < 1.e-6) harg_petco(i) = .0023
-      if (cncoef_sub(i) <= 1.e-6) then 
+      if (cncoef_sub(i) <= 1.e-6) then
         if (cncoef > 1.e-6) then
            cncoef_sub(i) = cncoef
       else
@@ -407,8 +414,8 @@
       if (ch_n(1,i) <= 0.005) ch_n(1,i) = 0.005
       if (ch_n(1,i) >= 0.70) ch_n(1,i) = 0.70
       do ib = 1, 10
-        if (sub_smtmp(ib,i) < 1.e-6) sub_smtmp(ib,i) = smtmp      
-        if (sub_sftmp(ib,i) < 1.e-6) sub_sftmp(ib,i) = sftmp        
+        if (sub_smtmp(ib,i) < 1.e-6) sub_smtmp(ib,i) = smtmp
+        if (sub_sftmp(ib,i) < 1.e-6) sub_sftmp(ib,i) = sftmp
         if (sub_smfmx(ib,i) < 1.e-6) sub_smfmx(ib,i) = smfmx
         if (sub_smfmn(ib,i) < 1.e-6) sub_smfmn(ib,i) = smfmn
         if (sub_timp(ib,i) < 1.e-6) sub_timp(ib,i) = timp
@@ -425,7 +432,7 @@
 
 !!    This equation given to us by EPA, in the process of getting reference
       sdrift = 0.
-      sdrift = .01 * (10.**(-.00738 * (7.62 * ch_w(1,i)) - 2.5889) +    
+      sdrift = .01 * (10.**(-.00738 * (7.62 * ch_w(1,i)) - 2.5889) +
      &                                                       .2267) / 2.
 
 !! assign subbasin values to HRUs where needed
@@ -461,7 +468,7 @@
 
       close (101)
       return
- 1000 format ('ERROR: Elevation Band Fractions in Subbasin ',i4,        
+ 1000 format ('ERROR: Elevation Band Fractions in Subbasin ',i4,
      &        ' do not add up to 100% of subbasin area!')
  5100 format (a)
  5101 format (f8.4,f4.2,5f8.3)
