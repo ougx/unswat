@@ -20,7 +20,7 @@
 !!                                 |  routing
 !!                                 |2 sub-daily rainfall/Green&Ampt technique/
 !!                                 |  daily routing
-!!                                 |3 sub-daily rainfall/Green&Ampt/hourly 
+!!                                 |3 sub-daily rainfall/Green&Ampt/hourly
 !!                                 |routing
 !!    rock(:)       |%             |percent of rock fragments in soil layer
 !!    sol_silt(:,:) |%             |percent silt content in soil material
@@ -29,9 +29,9 @@
 !!    sol_clay(:,:) |%             |percent clay content in soil material
 !!    sol_crk(:)    |none          |crack volume potential of soil
 !!    sno_hru(:)    |mm H2O        |amount of water stored as snow
-!!    sol_k(:,:)    |mm/hr         |saturated hydraulic conductivity of soil 
+!!    sol_k(:,:)    |mm/hr         |saturated hydraulic conductivity of soil
 !!                                 |layer
-!!    sol_nly(:)    |none          |number of soil layers 
+!!    sol_nly(:)    |none          |number of soil layers
 !!    sol_z(:,:)    |mm            |depth to bottom of soil layer
 !!    usle_k(:)     |none          |USLE equation soil erodibility (K) factor
 !!    usle_ls(:)    |none          |USLE equation length slope (LS) factor
@@ -47,11 +47,11 @@
 !!                                 |percent rock
 !!    sol_avbd(:)   |Mg/m^3        |average bulk density for soil profile
 !!    sol_avpor(:)  |none          |average porosity for entire soil profile
-!!    sol_fc(:,:)   |mm H2O        |amount of water available to plants in soil 
+!!    sol_fc(:,:)   |mm H2O        |amount of water available to plants in soil
 !!                                 |layer at field capacity (fc - wp)
 !!    sol_hk(:,:)   |none          |beta coefficent to calculate hydraulic
 !!                                 |conductivity
-!!    sol_por(:,:)  |none          |total porosity of soil layer expressed as a 
+!!    sol_por(:,:)  |none          |total porosity of soil layer expressed as a
 !!                                 |fraction of the total volume
 !!    sol_st(:,:)   |mm H2O        |amount of water stored in the soil layer
 !!                                 |on any given day (less wp water)
@@ -103,12 +103,16 @@
       real :: xx, sumpor, dg, pormm
 
       nly = 0
-    
+
       nly = sol_nly(i)
+
+      !!-------------------OGXinSWAT Begin------------------------------
+      !!  store initial groundwater table
+      if (ievent==0) then
 
 !!    calculate composite usle value
       sol_rock(1,i) = Exp(-.053 * sol_rock(1,i))
-      usle_mult(i) = sol_rock(1,i) * usle_k(i) * usle_p(i)              
+      usle_mult(i) = sol_rock(1,i) * usle_k(i) * usle_p(i)
      &     * usle_ls(i) * 11.8
 
 
@@ -128,7 +132,7 @@
         end if
         !! compute drainable porosity and variable water table factor - Daniel
         drpor = sol_por(j,i) - sol_up(j,i)
-        vwt(j,i)= ((437.13 * drpor**2)-(95.08 * drpor)+8.257) 
+        vwt(j,i)= ((437.13 * drpor**2)-(95.08 * drpor)+8.257)
        end do
 
       sa = sol_sand(1,i) / 100.
@@ -139,9 +143,9 @@
 !!    Based on SWRRB
        det_san(i) = 2.49 * sa * (1. - cl)   !! Sand fraction
        det_sil(i) = 0.13 * si               !! Silt fraction
-       det_cla(i) = 0.20 * cl               !! Clay fraction   
+       det_cla(i) = 0.20 * cl               !! Clay fraction
        if (cl < .25) then
-         det_sag(i) = 2.0 * cl              !! Small aggregate fraction                    
+         det_sag(i) = 2.0 * cl              !! Small aggregate fraction
        else if (cl > .5) then
          det_sag(i) = .57
        else
@@ -155,10 +159,10 @@
 !!    Soil not typical of mid-western USA
 !!    The fraction wont add upto 1.0
 	if (det_lag(i) < 0.) then
-	  det_san(i) = det_san(i)/(1 - det_lag(i)) 
-	  det_sil(i) = det_sil(i)/(1 - det_lag(i)) 
-	  det_cla(i) = det_cla(i)/(1 - det_lag(i)) 
-	  det_sag(i) = det_sag(i)/(1 - det_lag(i)) 
+	  det_san(i) = det_san(i)/(1 - det_lag(i))
+	  det_sil(i) = det_sil(i)/(1 - det_lag(i))
+	  det_cla(i) = det_cla(i)/(1 - det_lag(i))
+	  det_sag(i) = det_sag(i)/(1 - det_lag(i))
 	  det_lag(i) = 0.
       end if
 
@@ -183,14 +187,14 @@
         sol_wpmm(j,i) = sol_wp(j,i) * dg
         sol_sumwp(i) = sol_sumwp(i) + sol_wpmm(j,i)
         crdep(j,i) = sol_crk(i) * 0.916 * Exp(-.0012 * sol_z(j,i)) * dg
-        volcr(j,i) = crdep(j,i) * (sol_fc(j,i) - sol_st(j,i)) /   
+        volcr(j,i) = crdep(j,i) * (sol_fc(j,i) - sol_st(j,i)) /
      &       (sol_fc(j,i))
         xx = sol_z(j,i)
       end do
       !! initialize water table depth and soil water for Daniel
 !      sol_swpwt(i) = sol_sw(i)
 !      if (ffc(i) > 1.) then
-!        wat_tbl(i) = (sol_sumul(i) - ffc(i) * sol_sumfc(i)) /           
+!        wat_tbl(i) = (sol_sumul(i) - ffc(i) * sol_sumfc(i)) /
 !     &                                                      sol_z(nly,i)
 !      else
 !        wat_tbl(i) = 0.
@@ -198,12 +202,12 @@
       !!Initializing water table depth and soil water revised by D. Moriasi 4/8/2014
         do j = 1, nly
         sol_stpwt(j,i) = sol_st(j,i)
-        end do      
+        end do
       sol_swpwt(i) = sol_sw(i)
       wat_tbl(i) = dep_imp(i)- (shallst(i)/sol_por(nly,i))
 
-      !!Initializing water table depth and soil water revised by D. Moriasi 4/8/2014      
-   !! initialize water table depth and soil water for Daniel   
+      !!Initializing water table depth and soil water revised by D. Moriasi 4/8/2014
+   !! initialize water table depth and soil water for Daniel
       sol_avpor(i) = sumpor / sol_z(nly,i)
       sol_avbd(i) = 2.65 * (1. - sol_avpor(i))
 
@@ -222,17 +226,20 @@
       if (ievent > 0) then
         sol_sand = 0.
         sol_sand(1,i) = 100. - sol_clay(1,i) - sol_silt(1,i)
-        wfsh(i) = 10. * Exp(6.5309 - 7.32561 * sol_por(1,i) +           
+        wfsh(i) = 10. * Exp(6.5309 - 7.32561 * sol_por(1,i) +
      &    3.809479 * sol_por(1,i) ** 2 + 0.001583 * sol_clay(1,i) ** 2 +
-     &    0.000344 * sol_sand(1,i) * sol_clay(1,i) - 0.049837 *         
-     &    sol_por(1,i) * sol_sand(1,i)                                  
-     &    + 0.001608 * sol_por(1,i) ** 2 * sol_sand(1,i) ** 2 +         
-     &    0.001602 * sol_por(1,i) ** 2 * sol_clay(1,i) ** 2 -           
-     &    0.0000136 * sol_sand(1,i) ** 2 * sol_clay(1,i) -              
-     &    0.003479 * sol_clay(1,i) ** 2 * sol_por(1,i) -                
+     &    0.000344 * sol_sand(1,i) * sol_clay(1,i) - 0.049837 *
+     &    sol_por(1,i) * sol_sand(1,i)
+     &    + 0.001608 * sol_por(1,i) ** 2 * sol_sand(1,i) ** 2 +
+     &    0.001602 * sol_por(1,i) ** 2 * sol_clay(1,i) ** 2 -
+     &    0.0000136 * sol_sand(1,i) ** 2 * sol_clay(1,i) -
+     &    0.003479 * sol_clay(1,i) ** 2 * sol_por(1,i) -
      &    0.000799 * sol_sand(1,i) ** 2 * sol_por(1,i))
       end if
 
+
+      endif
+      !!-------------------------End------------------------------------
 
 !!    initialize watershed water parameters
       wshd_sw = wshd_sw + sol_sw(i) * hru_dafr(i)

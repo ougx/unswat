@@ -38,9 +38,10 @@
 
 
       use parm
+      use ROSSMOD
 
       integer :: j,sb,kk
-      real :: precip_fr
+      real :: precip_fr,dt
       real :: irfr,hruvirr
 
       j = 0
@@ -63,18 +64,27 @@
      &                (snoeb(ib,j), ib = 1,10)
       end if
 
-      !!---------------OGXinSWAT----------------------------
+      !!-------------------OGXinSWAT Begin------------------------------
       !!  skip crackvol
       !! compute crack volume
       if (ievent==0) then
         if (icrk == 1) call crackvol
       endif
-      !!---------------OGXinSWAT----------------------------
+      !!----------------------End--------------------------------------
 
       !! add overland flow from upstream routing unit
       precipday = precipday + ovrlnd(j)
       if (nstep > 0) then
+        dt=24./nstep
         do ii = 1, nstep
+
+        !!-------------------OGXinSWAT Begin------------------------------
+        !!  define precip and overland flow
+        if (ievent>0) then
+          SOLCOL(j)%RAIN(ii)=precipdt(ii+1)/dt
+          SOLCOL(j)%RUNON(ii)=SOLCOL(j)%RUNON(ii)+ovrlnd_dt(j,ii)/dt
+        endif
+        !!-------------------------End------------------------------------
           precipdt(ii+1) = precipdt(ii+1) + ovrlnd_dt(j,ii)
         end do
       end if
@@ -88,10 +98,10 @@
           irmmdt(ii) = hruvirr / (hru_km(j)
      &       * (1.- fimp(urblu(j))) * 1000.) !mm/dt
 
-            !!---------------OGXinSWAT----------------------------
+            !!---------------OGXinSWAT Begin----------------------------
             !!  add irrigation to precipitation
           if (ievent>0) then
-            precipdt(ii+1) = precipdt(ii+1) + irmmdt(ii)  !!OGX: mm
+            SOLCOL(j)%IRRI(ii)=SOLCOL(j)%IRRI(ii) + irmmdt(ii)/dt  !!OGX: mm/hr
           else
           !add irrigated water to soil water content
 
@@ -105,7 +115,7 @@
             end if
           end do
           endif
-          !!---------------OGXinSWAT----------------------------
+          !!---------------End----------------------------
 
         end do
       end if
@@ -115,13 +125,13 @@
 
         !! compute runoff - surfq in mm H2O
 
-      !!---------------OGXinSWAT----------------------------
+      !!---------------OGXinSWAT Begin----------------------------
       !!skip
 
       if (ievent>0) then
         return
       endif
-      !!---------------OGXinSWAT----------------------------
+      !!--------------------------End-----------------------------
 
 
       if (precipday > 0.1) then

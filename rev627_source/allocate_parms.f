@@ -37,7 +37,7 @@
 !!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !!    mhruo       |none          |max number of variables in output.hru
 !!    mrcho       |none          |max number of variables in reach file
-!!    mstdo       |none          |max number of variables summarized in 
+!!    mstdo       |none          |max number of variables summarized in
 !!                               |output.std
 !!    msubo       |none          |max number of variables in output.sub
 !!    mvaro       |none          |max number of variables routed through the
@@ -48,12 +48,12 @@
 
 
       use parm
-            
+
       allocate (alph_e(mhru))
       allocate (co_p(mhru))
-      
-      
-!! initialize variables    
+
+
+!! initialize variables
       mvaro = 33
       mhruo = 78
       mrcho = 62
@@ -62,7 +62,7 @@
       msubo = 22
       mstdo = 113
       motot = 600             !! (50 years limit)
-      
+
       allocate (surlag(mhru))
 !!!!!!!!!! drains
       allocate (wnan(mlyr))
@@ -79,7 +79,7 @@
       allocate (l_vleng(msub))
       allocate (l_vslope(msub))
       allocate (l_ktc(msub))
-		
+
 !!    arrays for Biofilm in reach
       allocate (biofilm_mumax(mch))
       allocate (biofilm_kinv(mch))
@@ -87,20 +87,20 @@
       allocate (biofilm_kla(mch))
       allocate (biofilm_cdet(mch))
       allocate (biofilm_bm(mch))
-      
+
       mxsubch = Max(msub+1,mch+1)
-      itempa = Max(mhru,mch)     
-	
+      itempa = Max(mhru,mch)
+
 !!    new arrays for routing units
-      allocate (hru_rufr(mru,mhru))   
-      allocate (daru_km(msub,mru))   
-      allocate (ru_k(msub,mru))      
-      allocate (ru_c(msub,mru))      
-      allocate (ru_eiq(msub,mru))    
-      allocate (ru_ovs(msub,mru))    
-      allocate (ru_ovsl(msub,mru))   
-      allocate (ru_a(msub,mru))      
-      allocate (ru_ktc(msub,mru))    
+      allocate (hru_rufr(mru,mhru))
+      allocate (daru_km(msub,mru))
+      allocate (ru_k(msub,mru))
+      allocate (ru_c(msub,mru))
+      allocate (ru_eiq(msub,mru))
+      allocate (ru_ovs(msub,mru))
+      allocate (ru_ovsl(msub,mru))
+      allocate (ru_a(msub,mru))
+      allocate (ru_ktc(msub,mru))
       allocate (gwq_ru(mhru))
       allocate (mhyd1(msub))
       allocate (ils2(mhru))
@@ -142,7 +142,7 @@
       allocate (sptno3concs(msdb+1))
       allocate (sptno2concs(msdb+1))
       allocate (sptorgnconcs(msdb+1))
-      allocate (spttpconcs(msdb+1))  
+      allocate (spttpconcs(msdb+1))
       allocate (sptminps(msdb+1))
       allocate (sptorgps(msdb+1))
       allocate (sptfcolis(msdb+1))
@@ -221,11 +221,11 @@
 
 !! septic changes added 1/28/09 gsm
       allocate (qird(mhru))
-     
+
 !!    arrays which contain data related to channels
       allocate (algae(mch))
-      allocate (alpha_bnk(mxsubch)) 
-      allocate (alpha_bnke(mxsubch)) 
+      allocate (alpha_bnk(mxsubch))
+      allocate (alpha_bnke(mxsubch))
       allocate (ammonian(mch))
       allocate (bankst(mch))
       allocate (bc1(mch))
@@ -237,7 +237,7 @@
       allocate (ch_cov1(mch))
       allocate (ch_cov2(mch))
       allocate (ch_bnk_d50(mch))
-      allocate (ch_eqn(mch))    
+      allocate (ch_eqn(mch))
 !      allocate (ch_erod(mch))
       allocate (ch_li(mch))
       allocate (ch_onco(mch))
@@ -292,7 +292,7 @@
       allocate (sedst(mch))
       allocate (vel_chan(mch))
 
-      allocate (wurch(12,mxsubch)) 
+      allocate (wurch(12,mxsubch))
 
 !!    arrays for channel added by Balaji for the new routines
       allocate (ch_bnk_san(mch))
@@ -332,31 +332,31 @@
       allocate (lagst(mch))
       allocate (grast(mch))
 
-!!    arrays which contain data related to reach output 
+!!    arrays which contain data related to reach output
       allocate (icolr(mrcho))
 !     allocate (ipdvar(mrcho))
 !!  increased ipdvar(42) to 45 to add Total N/Total P/NO3conc(mg/l)
-      allocate (ipdvar(46))    
-      allocate (rchaao(mrcho,mxsubch))  
-      allocate (rchdy(mrcho,mxsubch))  
-      allocate (rchmono(mrcho,mxsubch))  
-      allocate (rchyro(mrcho,mxsubch))  
+      allocate (ipdvar(46))
+      allocate (rchaao(mrcho,mxsubch))
+      allocate (rchdy(mrcho,mxsubch))
+      allocate (rchmono(mrcho,mxsubch))
+      allocate (rchyro(mrcho,mxsubch))
 
 !!    arrays which contain data related to subbasins
-      allocate (ch_revap(mxsubch)) 
+      allocate (ch_revap(mxsubch))
       allocate (cncoef_sub(msub))
       allocate (co2(msub))
       allocate (daylmn(msub))
       allocate (drydep_no3(msub))
       allocate (drydep_nh4(msub))
-      
+
 !!!   atmospheric deposition by month
       allocate (rcn_mo(motot,msub))
       allocate (rammo_mo(motot,msub))
       allocate (drydep_no3_mo(motot,msub))
       allocate (drydep_nh4_mo(motot,msub))
 !!!   atmospheric deposition by month
-      
+
       allocate (fcst_reg(msub))
       allocate (harg_petco(msub))
 !      allocate (hqd(nstep*3+1))  !! was 73, changed for urban
@@ -462,7 +462,7 @@
       allocate (ch_k(2,mxsubch))
       allocate (ch_n(2,mxsubch))
       allocate (ch_s(2,mxsubch))
-      allocate (ch_w(2,mxsubch))   
+      allocate (ch_w(2,mxsubch))
       allocate (ch_l2(mxsubch))
       allocate (ch_d(mxsubch))
       allocate (chside(mxsubch))
@@ -507,10 +507,10 @@
 !!    arrays which contain data related to soil layers, HRUs
 !    Drainmod tile equations  01/2006
       allocate (vwt(mlyr,mhru))
-      allocate (wat_tbl(mhru))     
+      allocate (wat_tbl(mhru))
       allocate (sol_swpwt(mhru))
       allocate (conk(mlyr,mhru))
-	allocate (r2adj(mhru))	        
+	allocate (r2adj(mhru))
       allocate (sol_stpwt(mlyr,mhru)) !Moriasi 4/8/2014
 !    Drainmod tile equations  01/2006
       allocate (conv_wt(mlyr,mhru))
@@ -658,9 +658,9 @@
       allocate (oflowmn(12,mres))
       allocate (starg(12,mres))
       allocate (wuresn(12,mres))
- 
+
  !!  added per JGA for Srini by gsm 9/8/2011
- !! arrays for mangement output (output.mgt)  
+ !! arrays for mangement output (output.mgt)
       allocate (sol_sumno3(mhru))
       allocate (sol_sumsolp(mhru))
       allocate (strsw_sum(mhru))
@@ -756,13 +756,13 @@
 !!    arrays which contain data related to years of rotation,
 !!    applications, and HRUs
       allocate (auto_wstr(mhru))
-!! burn 3/5/09   
-     
+!! burn 3/5/09
+
       allocate (cfrt_id(mhru))
       allocate (cfrt_kg(mhru))
       allocate (cpst_id(mhru))
       allocate (cpst_kg(mhru))
-     
+
       allocate (wstrs_id(mhru))
       allocate (ifrt_freq(mhru))
       allocate (ipst_freq(mhru))
@@ -798,15 +798,15 @@
 
 !!    arrays which contain data related to years of rotation,
 !!    crops grown per year, and HRUs
-     
+
       allocate (bio_aahv(mcr,mhru))
       allocate (bio_hv(mcr,mhru))
-   
-  
+
+
       allocate (hi_targ(mhru))
       allocate (idplt(mhru))
       allocate (mcrhru(mhru))
-      allocate (idplrot(mcr,mhru))      
+      allocate (idplrot(mcr,mhru))
       allocate (ncrops(mcr,mhru))
       allocate (orig_phu(mhru))
 
@@ -907,7 +907,7 @@
       allocate (cn2(mhru))
       allocate (cn3(mhru))
       allocate (cnday(mhru))
-!    Drainmod tile equations  01/2006 
+!    Drainmod tile equations  01/2006
       allocate (cont_cn(20,mhru))
 	  allocate (cumei(mhru))
 	  allocate (cumeira(mhru))
@@ -923,7 +923,7 @@
       allocate (det_cla(mhru))
       allocate (det_sag(mhru))
       allocate (det_lag(mhru))
-!    Drainmod tile equations  01/2006 
+!    Drainmod tile equations  01/2006
 	  allocate (drain_co(mhru))
 	  allocate (ddrain_hru(mhru))
 !    Drainmod tile equations  01/2006
@@ -1026,7 +1026,7 @@
       allocate (mgt3iop(iopera,mhru))
       allocate (mgt4op(iopera,mhru))
       allocate (mgt5op(iopera,mhru))
-      allocate (mgt6op(iopera,mhru)) 
+      allocate (mgt6op(iopera,mhru))
       allocate (mgt7op(iopera,mhru))
       allocate (mgt8op(iopera,mhru))
       allocate (mgt9op(iopera,mhru))
@@ -1125,9 +1125,9 @@
       allocate (orig_wetvol(mhru))
       allocate (ov_n(mhru))
       allocate (ovrlnd(mhru))
-!    Drainmod tile equations  01/2006 
+!    Drainmod tile equations  01/2006
 	  allocate (pc(mhru))
-!    Drainmod tile equations  01/2006 
+!    Drainmod tile equations  01/2006
       allocate (percn(mhru))
       allocate (phuacc(mhru))
       allocate (phubase(mhru))
@@ -1189,7 +1189,7 @@
       allocate (potflwi(mhru))
       allocate (potsa(mhru))
       allocate (potsedi(mhru))
-      
+
       allocate (potsani(mhru))
       allocate (potsili(mhru))
       allocate (potclai(mhru))
@@ -1197,10 +1197,10 @@
       allocate (potlagi(mhru))
 
       allocate (pplnt(mhru))
-      allocate (prf(mch))  !Moriasi 4/8/14    
+      allocate (prf(mch))  !Moriasi 4/8/14
       allocate (qdr(mhru))
       allocate (qdayout(mhru))
-      allocate (rch_dakm(mxsubch))  
+      allocate (rch_dakm(mxsubch))
       allocate (rchrg(mhru))
       allocate (rchrg_n(mhru))    !! amount of nitrate getting to the shallow aquifer
       allocate (rchrg_dp(mhru))
@@ -1215,10 +1215,10 @@
       allocate (rsdin(mhru))
       allocate (rwt(mhru))
       allocate (sci(mhru))
-!    Drainmod tile equations  01/2006 
+!    Drainmod tile equations  01/2006
 	  allocate (sdrain(mhru))
-	  allocate (sstmaxd(mhru))	  
-!    Drainmod tile equations  01/2006 
+	  allocate (sstmaxd(mhru))
+!    Drainmod tile equations  01/2006
       allocate (seccip(mhru))
       allocate (secciw(mhru))
       allocate (sed_stl(mhru))
@@ -1260,7 +1260,7 @@
       allocate (sol_sw(mhru))
       allocate (sol_zmx(mhru))
       allocate (strip_n(20,mhru))
-!!    Drainmod tile equations  01/2006 
+!!    Drainmod tile equations  01/2006
 	allocate (strip_cn(20,mhru))
 	allocate (strip_c(20,mhru))
 	allocate (strip_p(20,mhru))
@@ -1374,7 +1374,7 @@
       allocate (wupnd(12,mhru))
       allocate (wushal(12,mhru))
 !     allocate (phi(13,msub+1))
-      allocate (phi(13,mch))  
+      allocate (phi(13,mch))
       allocate (wat_phi(13,mhru))
       allocate (rfqeo_30d(30,mhru))
       allocate (eo_30d(30,mhru))
@@ -1391,7 +1391,7 @@
       allocate (pst_lag(mpst,3,mhru))
 
 
-!!    arrays which contain data related to HRU output 
+!!    arrays which contain data related to HRU output
       allocate (hrupsta(mpst,4,mhru))
       allocate (hrupstd(mpst,4,mhru))
       allocate (hrupstm(mpst,4,mhru))
@@ -1541,7 +1541,7 @@
 !!arrays that store initial values
       allocate (ivar_orig(10))
       allocate (rvar_orig(10))
-      allocate (wattemp(mch))    
+      allocate (wattemp(mch))
 !! sj, june 07 modifications to carbon balance routines
       allocate (sol_n(mlyr,mhru))
 !! sj, june 07 end
@@ -1585,8 +1585,8 @@
 	allocate (lu_nodrain(30),bmpdrain(mhru))
 	allocate (subdr_km(mhyd),subdr_ickm(mhyd),sub_cn2(msub))
       ! sedimentation-filtration
-      allocate (num_sf(msub),sf_fr(msub,10),sf_dim(msub,10),         
-     &  sf_typ(msub,10),sf_im(msub,10),sf_iy(msub,10),sp_sa(msub,10),  
+      allocate (num_sf(msub),sf_fr(msub,10),sf_dim(msub,10),
+     &  sf_typ(msub,10),sf_im(msub,10),sf_iy(msub,10),sp_sa(msub,10),
      &  sp_pvol(msub,10),sp_pd(msub,10),sp_sedi(msub,10),
      &  sp_sede(msub,10),ft_sa(msub,10),ft_fsa(msub,10),
      &  ft_dep(msub,10),ft_h(msub,10),ft_pd(msub,10),
@@ -1595,9 +1595,9 @@
      &  sp_qi(msub,10),sp_k(msub,10),sp_bpw(msub,10),
      &  ft_bpw(msub,10),sp_dp(msub,10),ft_sed_cumul(msub,10),
      &  sp_sed_cumul(msub,10),ft_qfg(msub,10),sp_qfg(msub,10))
-      allocate (sub_ha_imp(msub),ft_qpnd(msub,10),ft_qsw(msub,10), 
+      allocate (sub_ha_imp(msub),ft_qpnd(msub,10),ft_qsw(msub,10),
      &  ft_qin(msub,10),ft_qout(msub,10),ft_sedpnd(msub,10),
-     &  sf_ptp(msub,10),ft_fc(msub,10),sub_ha_urb(msub)) 
+     &  sf_ptp(msub,10),ft_fc(msub,10),sub_ha_urb(msub))
 !! additional var by Ann
 !! Filter Strip variable allocation MJW
       allocate (vfscon(mhru))
@@ -1607,13 +1607,13 @@
       allocate (filter_i(20,mhru))
       allocate (filter_ratio(20,mhru))
       allocate (filter_con(20,mhru))
-      allocate (filter_ch(20,mhru))  
-      
+      allocate (filter_ch(20,mhru))
+
       ! detention pond
  	allocate(dtp_subnum(mhyd),dtp_imo(mhyd),dtp_iyr(mhyd),
      &  dtp_numweir(mhyd),dtp_numstage(mhyd),
      &  dtp_stagdis(mhyd),dtp_reltype(mhyd),dtp_onoff(mhyd))
-	
+
 	allocate(dtp_evrsv(msub),
      &  dtp_inflvol(msub),dtp_totwrwid(msub),dtp_lwratio(msub),
      &  dtp_wdep(msub),dtp_totdep(msub),dtp_watdepact(msub),
@@ -1624,12 +1624,12 @@
      &  dtp_expont(msub),dtp_coef1(msub),dtp_coef2(msub),
      &  dtp_coef3(msub),dtp_dummy1(msub),dtp_dummy2(msub),
      &  dtp_dummy3(msub),dtp_ivol(msub),dtp_ised(msub))
-      
+
   	allocate(dtp_wdratio(msub,10),dtp_depweir(msub,10),
      &  dtp_diaweir(msub,10),dtp_retperd(msub,10),dtp_pcpret(msub,10),
      &  dtp_cdis(msub,10),dtp_flowrate(msub,10),
      &  dtp_wrwid(msub,10),dtp_weirtype(msub,10),dtp_weirdim(msub,10),
-     &  dtp_addon(msub,10)) 
+     &  dtp_addon(msub,10))
       !! additional var by jeong for nutrient speciation
       allocate (lat_orgn(mhru))
       allocate (lat_orgp(mhru))
@@ -1643,7 +1643,7 @@
 	allocate (sol_cal(mlyr,mhru))
       allocate (sol_ph(mlyr,mhru))
 	allocate (harv_min(mhru))
-	allocate (fstap(mfdb)) 
+	allocate (fstap(mfdb))
 	allocate (min_res(mhru))
 	allocate (so_res(20,mhru))
 	allocate (so_res_flag(20,mhru))
@@ -1656,22 +1656,22 @@
 	allocate (ro_bmp_bac(20,mhru))
 	allocate (bmp_flag(mhru))
 	allocate (bmp_sed(mhru))
-	allocate (bmp_pp(mhru)) 	
-	allocate (bmp_sp(mhru))	
-	allocate (bmp_pn(mhru)) 	
-	allocate (bmp_sn(mhru))	
+	allocate (bmp_pp(mhru))
+	allocate (bmp_sp(mhru))
+	allocate (bmp_pn(mhru))
+	allocate (bmp_sn(mhru))
 	allocate (bmp_bac(mhru))
       !retention irrigation
       allocate(ri_sed(msub,10),ri_fr(msub,10),ri_dim(msub,10),
-     &   ri_im(msub,10),ri_iy(msub,10),ri_sa(msub,10),ri_vol(msub,10), 
+     &   ri_im(msub,10),ri_iy(msub,10),ri_sa(msub,10),ri_vol(msub,10),
      &   ri_qi(msub,10),ri_k(msub,10),ri_dd(msub,10),ri_evrsv(msub,10),
      &   ri_dep(msub,10),ri_ndt(msub,10),ri_nirr(msub,30),
      &   num_noirr(msub),ri_totpvol(nstep),ri_luflg(mhru),
      &   ri_subkm(msub),ri_sed_cumul(msub,10),irmmdt(nstep),
-     &   ri_pumpv(msub,10),ri_sedi(msub,10))   
+     &   ri_pumpv(msub,10),ri_sedi(msub,10))
       allocate(num_ri(msub), ri_pmpvol(10,nstep),hrnopcp(msub,0:nstep),
      &   ri_qloss(10,nstep))
-      
+
       !wet pond
       allocate(wtp_subnum(mhyd),wtp_onoff(mhyd),wtp_imo(mhyd),
      &  wtp_iyr(mhyd),wtp_dim(mhyd),wtp_stagdis(mhyd),wtp_sdtype(mhyd),
@@ -1681,30 +1681,30 @@
      &  wtp_sdc2(mhyd),wtp_sdc3(mhyd),wtp_pdia(mhyd),wtp_plen(mhyd),
      &  wtp_pmann(mhyd),wtp_ploss(mhyd),wtp_k(mhyd),
      &  wtp_dp(mhyd),wtp_sedi(mhyd),wtp_sede(mhyd),wtp_qi(mhyd))
-                 
+
 
       !! By Zhang for C/N cycling
       !! ============================
 	!allocate(sol_PH(mlyr,mhru))
-	allocate(sol_CAC(mlyr,mhru)) 
-	allocate(sol_CEC(mlyr,mhru)) 
-	allocate(sol_BMC(mlyr,mhru)) 
-	allocate(sol_BMN(mlyr,mhru)) 
-	allocate(sol_HSC(mlyr,mhru)) 
-	allocate(sol_HSN(mlyr,mhru)) 
-	allocate(sol_HPC(mlyr,mhru)) 
-	allocate(sol_HPN(mlyr,mhru)) 
-	allocate(sol_LM(mlyr,mhru)) 
-	allocate(sol_LMC(mlyr,mhru)) 
-	allocate(sol_LMN(mlyr,mhru)) 
-	allocate(sol_LS(mlyr,mhru)) 
-	allocate(sol_LSC(mlyr,mhru)) 
-	allocate(sol_LSN(mlyr,mhru)) 
-      allocate(sol_LSL(mlyr,mhru)) 
+	allocate(sol_CAC(mlyr,mhru))
+	allocate(sol_CEC(mlyr,mhru))
+	allocate(sol_BMC(mlyr,mhru))
+	allocate(sol_BMN(mlyr,mhru))
+	allocate(sol_HSC(mlyr,mhru))
+	allocate(sol_HSN(mlyr,mhru))
+	allocate(sol_HPC(mlyr,mhru))
+	allocate(sol_HPN(mlyr,mhru))
+	allocate(sol_LM(mlyr,mhru))
+	allocate(sol_LMC(mlyr,mhru))
+	allocate(sol_LMN(mlyr,mhru))
+	allocate(sol_LS(mlyr,mhru))
+	allocate(sol_LSC(mlyr,mhru))
+	allocate(sol_LSN(mlyr,mhru))
+      allocate(sol_LSL(mlyr,mhru))
       allocate(sol_RNMN(mlyr,mhru))
       allocate(sol_LSLC(mlyr,mhru))
       allocate(sol_LSLNC(mlyr,mhru))
-      allocate(sol_RSPC(mlyr,mhru))      
+      allocate(sol_RSPC(mlyr,mhru))
       allocate(sol_WOC(mlyr,mhru))
       allocate(sol_WON(mlyr,mhru))
       allocate(sol_HP(mlyr,mhru))
@@ -1714,7 +1714,7 @@
 	!daily update
 	allocate(sol_percc(mlyr,mhru))
 	allocate(sol_latc(mlyr,mhru))
-	      
+
 	!!for print out at daily, monthly, and annual scale
 	allocate(sedc_d(mhru))
 	allocate(surfqc_d(mhru))
@@ -1722,7 +1722,7 @@
 	allocate(percc_d(mhru))
 	allocate(foc_d(mhru))
 	allocate(NPPC_d(mhru))
-	allocate(rsdc_d(mhru)) 
+	allocate(rsdc_d(mhru))
 	allocate(grainc_d(mhru))
 	allocate(stoverc_d(mhru))
 	allocate(emitc_d(mhru))
@@ -1741,32 +1741,32 @@
 	allocate(sub_emitc_d(msub))
 	allocate(sub_soc_d(msub))
 	allocate(sub_rspc_d(mhru))
-	   
+
 	allocate(sedc_m(mhru))
 	allocate(surfqc_m(mhru))
 	allocate(latc_m(mhru))
 	allocate(percc_m(mhru))
 	allocate(foc_m(mhru))
 	allocate(NPPC_m(mhru))
-	allocate(rsdc_m(mhru)) 
+	allocate(rsdc_m(mhru))
 	allocate(grainc_m(mhru))
 	allocate(stoverc_m(mhru))
 	allocate(emitc_m(mhru))
 	allocate(soc_m(mhru))
-	allocate(rspc_m(mhru))	
-	
+	allocate(rspc_m(mhru))
+
 	allocate(sedc_a(mhru))
 	allocate(surfqc_a(mhru))
 	allocate(latc_a(mhru))
 	allocate(percc_a(mhru))
 	allocate(foc_a(mhru))
 	allocate(NPPC_a(mhru))
-	allocate(rsdc_a(mhru)) 
+	allocate(rsdc_a(mhru))
 	allocate(grainc_a(mhru))
 	allocate(stoverc_a(mhru))
 	allocate(emitc_a(mhru))
 	allocate(soc_a(mhru))
-	allocate(rspc_a(mhru))	
+	allocate(rspc_a(mhru))
 
        !Tillage factor on SOM decomposition
        allocate(tillage_switch(mhru))
@@ -1779,12 +1779,18 @@
        tillage_factor = 0.
       !! By Zhang for C/N cycling
       !! ============================
-      	  
+      !!-------------------OGXinSWAT Begin------------------------------
+      !!  allocate soil columns
+      if (ievent>0) then
+        print *, "Start SOIL_ALL"
+        call SOIL_ALL
+      endif
+      !!---------------OGXinSWAT Ebd------------------------------
       call zero0
       call zero1
       call zero2
       call zeroini
       call zero_urbn
-   
+
       return
       end

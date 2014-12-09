@@ -28,6 +28,8 @@
 !!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !!
       use parm
+      use ROSSMOD
+
       real :: latqout, gwqout, latqrunon, surfqrunon, latqlyr
 
 !!    compute infiltration from surface runon to next landscape unit
@@ -129,6 +131,8 @@
 
 !!        add surface runon to soil layers - use percmain like rainfall infiltration
           qs = surfqrunon / 24.
+
+
           vs = (qs ** .4) * (hru_slp(jj) ** .3) / (ov_n(jj) ** .6)
           trt = slsubbsn(jj) / (3600. * vs)
           inflpcp = sol_k(1,jj) * trt + dstor
@@ -139,14 +143,14 @@
           sepbtm(jj) = 0.
           qtile = 0.
 
-          !!---------------OGXinSWAT Begin----------------------------
-          !!  surface runon
+          !!-------------------OGXinSWAT Begin------------------------------
+          !!  add surface runon
           if (ievent>0) then
-            !SOLCOL(k)%QON
+            SOLCOL(jj)%RUNON=SOLCOL(jj)%RUNON+inflpcp/24.
           else
             call percmain
           endif
-          !!---------------OGXinSWAT End----------------------------
+          !!--------------------End--------------------------------
 
           latqout = latqout + latq(jj) * 10. * xx
           gwqout = gwqout + sepbtm(jj) * 10. * xx
@@ -184,10 +188,10 @@
 	      latqrunon = ls_latq / (10. * xx)
 	      jj= hru1(inum3) + kk - 1
 
-        !!---------------OGXinSWAT Begin----------------------------
+        !!-------------------OGXinSWAT Begin------------------------------
         !!  lateral in flow
         if (ievent>0) then
-          !SOLCOL(k)%QLATIN
+          SOLCOL(jj)%QLATIN=SOLCOL(jj)%QLATIN+latqrunon/24.
         else
 
 !!          put in soil layers - weighted by depth of soil layer
@@ -206,7 +210,7 @@
 !!          add excess water to next landscape unit
             latqout = latqout + xslat * 10. * xx
         endif
-        !!---------------OGXinSWAT End----------------------------
+        !!--------------------End--------------------------------
           end if
         end do
         varoute(30,ihout) = varoute(30,ihout) + latqout

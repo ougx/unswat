@@ -1,7 +1,7 @@
       subroutine readsol
 
 !!    ~ ~ ~ PURPOSE ~ ~ ~
-!!    this subroutine reads data from the HRU/subbasin soil properties file 
+!!    this subroutine reads data from the HRU/subbasin soil properties file
 !!    (.sol). This file contains data related to soil physical properties and
 !!    general chemical properties.
 
@@ -35,9 +35,9 @@
 !!    sol_bd(:,:)   |Mg/m**3       |bulk density of the soil
 !!    sol_cbn(:,:)  |%             |percent organic carbon in soil layer
 !!    sol_crk(:)    |none          |crack volume potential of soil
-!!    sol_k(:,:)    |mm/hr         |saturated hydraulic conductivity of soil 
+!!    sol_k(:,:)    |mm/hr         |saturated hydraulic conductivity of soil
 !!                                 |layer
-!!    sol_nly(:)    |none          |number of soil layers 
+!!    sol_nly(:)    |none          |number of soil layers
 !!    sol_no3(:,:)  |mg N/kg       |concentration of nitrate in soil layer
 !!    sol_orgn(1,:) |mg N/kg soil  |organic N concentration in top soil layer
 !!    sol_orgp(1,:) |mg P/kg soil  |organic P concentration in top soil layer
@@ -45,7 +45,7 @@
 !!                                 |classified as residue
 !!    sol_solp(1,:) |mg P/kg soil  |soluble P concentration in top soil layer
 !!    sol_stap(:,:) |kg P/ha       |amount of phosphorus in the soil layer
-!!                                 |stored in the stable mineral phosphorus 
+!!                                 |stored in the stable mineral phosphorus
 !!                                 |pool
 !!    sol_z(:,:)    |mm            |depth to bottom of soil layer
 !!    sol_zmx(:)    |mm            |maximum rooting depth
@@ -74,6 +74,7 @@
 !!    ~ ~ ~ ~ ~ ~ END SPECIFICATIONS ~ ~ ~ ~ ~ ~
 
       use parm
+      use ROSSMOD
 
       character (len=80) :: titldum
 !      integer :: j, nly, n, jj, flag, eof
@@ -94,7 +95,7 @@
       read (107,5500) titldum
       read (107,5000) (sol_z(j,ihru), j = 1, mlyr)
 
-      
+
       !! calculate number of soil layers in HRU soil series
       do j = 1, mlyr
 !!    khan soils
@@ -123,30 +124,37 @@
 !    change below double subscripted sol_ec statement 1/27/09 when making septic changes
 
       !! MJW added rev 490
-	!!CaCo3 content (%) 
-	if (eof < 0) exit	
-	  read (107,5000,iostat=eof) (sol_cal(j,ihru), j = 1, nly) 	
-	!! PH-H20  
+	!!CaCo3 content (%)
 	if (eof < 0) exit
-	  read (107,5000,iostat=eof) (sol_ph(j,ihru), j = 1, nly) 
-      
+	  read (107,5000,iostat=eof) (sol_cal(j,ihru), j = 1, nly)
+	!! PH-H20
+	if (eof < 0) exit
+	  read (107,5000,iostat=eof) (sol_ph(j,ihru), j = 1, nly)
+
       if (eof < 0) exit
       exit
       end do
 
-	!!Armen January 2009 
+	!!Armen January 2009
 	do j=1, nly
          if (sol_rock(j,ihru) > 98.0) sol_rock(j,ihru) = 98.0
          if (sol_awc(j,ihru) <= .01) sol_awc(j,ihru) = .01
          if (sol_awc(j,ihru) >= .80) sol_awc(j,ihru) = .80
          sol_n(j,ihru) = sol_cbn(j,ihru) / 11.0
-	end do	
+	end do
 	!!Armen January 2009 end
+
+      !!OGXinSWAT: label if the first layer is split
+      if (ievent >0) SOLCOL(ihru)%Lay1_split=0
 
 !!    add 10mm layer at surface of soil
       if (sol_z(1,ihru) > 10.1) then
         sol_nly(ihru) = sol_nly(ihru) + 1
         nly = nly + 1
+
+        !!OGXinSWAT
+        if (ievent >0) SOLCOL(ihru)%Lay1_split=1
+
         do j = nly, 2, -1
           sol_z(j,ihru) = sol_z(j-1,ihru)
           sol_bd(j,ihru) = sol_bd(j-1,ihru)
@@ -203,7 +211,7 @@
       !end if
 
 !! create a bizone layer in septic HRUs
-      if (isep_opt(ihru) /= 0) then 
+      if (isep_opt(ihru) /= 0) then
 	 if (bz_z(ihru)+bz_thk(ihru) > sol_z(nly,ihru)) then
 	   if (sol_z(nly,ihru)>bz_thk(ihru)+10.) then !min. soil thickness for biozone layer (10mm top+biozone layer thickness)
 	      bz_z(ihru) = sol_z(nly,ihru) - bz_thk(ihru)
@@ -211,17 +219,17 @@
 	      bz_z(ihru) = sol_z(nly,ihru)
 	      sol_z(nly,ihru) = sol_z(nly,ihru) + bz_thk(ihru)
 	   endif
-       endif 
-       if (bz_z(ihru) > 0.) then 
+       endif
+       if (bz_z(ihru) > 0.) then
          call layersplit (bz_z(ihru))
          dep_new = bz_z(ihru) + bz_thk(ihru)
-         call layersplit (dep_new)  
+         call layersplit (dep_new)
          i_sep(ihru) = iseptic
-       endif    
+       endif
       endif
 
       nly = sol_nly(ihru)
-      
+
 !!    set default values/initialize variables
       if (sol_alb(ihru) < 0.1) sol_alb(ihru) = 0.1
       if (anion_excl(ihru) <= 1.e-6) anion_excl(ihru) = anion_excl_bsn
@@ -231,9 +239,9 @@
         a = 50.0
         b = 20.0
         c = 5.0
-        d = 2.0           
+        d = 2.0
         nota = 10
-        if (sol_k(j,ihru) <= 0.0) then 
+        if (sol_k(j,ihru) <= 0.0) then
           if (hydgrp(ihru) == "A") then
             sol_k(j,ihru) = a
 	    else
@@ -246,7 +254,7 @@
           if (hydgrp(ihru) == "D") then
 !            sol_k(j,ihru) = c
             sol_k(j,ihru) = d          !Claire 12/2/09
-         else 
+         else
            sol_k(j,ihru) = nota
           endif
           endif

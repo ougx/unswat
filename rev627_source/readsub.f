@@ -287,12 +287,17 @@
           call readsol
           call readgw
 
-          !!---------------OGXinSWAT Begin----------------------------
-          !!  open and read the soil file of each HRU
+          !!-------------------OGXinSWAT Begin------------------------------
+          !!  open and read the extra soil file of each HRU
           if (ievent>0) then
-
+            write (solfile,'(A9,A4)') solfile(1:9), ".usf"
+            open(newunit=k,file=solfile)
+            call readsoilcol(k ,ihru)
+            close (k)
           endif
-          !!---------------OGXinSWAT End----------------------------
+          !!-------------------------End------------------------------------
+
+
           if (opsfile /= '             ') then
             call caps(opsfile)
             open (111,file=opsfile)

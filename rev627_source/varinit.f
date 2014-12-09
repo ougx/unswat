@@ -275,7 +275,7 @@
          precipday = 0.
          precipday = subp(j)
          precipdt = 0.
-         if (nstep > 0) then
+         if (nstep > 0 .and. precipday>0.01) then
            do ii = 1, nstep
              precipdt(ii+1) = rainsub(j,ii)
            end do

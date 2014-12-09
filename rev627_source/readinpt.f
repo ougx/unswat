@@ -1,7 +1,7 @@
       subroutine readinpt
 
 !!    ~ ~ ~ PURPOSE ~ ~ ~
-!!    this subroutine calls subroutines which read input data for the 
+!!    this subroutine calls subroutines which read input data for the
 !!    databases and the HRUs
 
 !!    ~ ~ ~ INCOMING VARIABLES ~ ~ ~
@@ -21,11 +21,11 @@
 !!    name          |units         |definition
 !!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !!    i             |none          |number of specific reservoir or HRU
-!!    irtpest       |none          |redefined to the sequence number of 
-!!                                 |pestcide in NPNO(:) which is to be routed 
+!!    irtpest       |none          |redefined to the sequence number of
+!!                                 |pestcide in NPNO(:) which is to be routed
 !!                                 |through the watershed
-!!    ndays(:)      |julian date   |julian date for last day of preceding 
-!!                                 |month (where the array location is the 
+!!    ndays(:)      |julian date   |julian date for last day of preceding
+!!                                 |month (where the array location is the
 !!                                 |number of the month) The dates are for
 !!                                 |leap years
 !!    npmx          |none          |total number of pesticides modeled in
@@ -40,12 +40,12 @@
 
       use parm
 
-!! By Zhang for C/N cycling 
-!!==============================  
+!! By Zhang for C/N cycling
+!!==============================
       !initilizaing several soil parameters
       sol_WOC = 0.
       sol_WON = 0.
-!! By Zhang for C/N cycling  
+!! By Zhang for C/N cycling
 !!=============================
 
       if (irtpest > 0) irtpest = nope(irtpest)

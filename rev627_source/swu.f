@@ -94,6 +94,7 @@
 !!    ~ ~ ~ ~ ~ ~ END SPECIFICATIONS ~ ~ ~ ~ ~ ~
 
       use parm
+      use ROSSMOD
 
       integer :: j, k, ir
       real, dimension(mlyr) :: wuse
@@ -113,8 +114,12 @@
 
 	  stsol_rd(j) = sol_rd ! cole armen 26 Feb
 
+	    !!-------------------OGXinSWAT: Root depth
+	    if (ievent>0) SOLCOL(j)%DEPROT=sol_rd
+
       if (ep_max <= 0.01) then
         strsw(j) = 1.
+        return
       else
         !! initialize variables
         gx = 0.
@@ -137,15 +142,6 @@
           end if
         end if
 
-        !!---------------OGXinSWAT Begin----------------------------
-        !!  skip root water uptake
-        if (ievent>0) then
-          xx=SOLCOL(j)%EPACT
-          strsw(j) = xx / ep_max
-          ep_day = xx
-          return
-        endif
-        !!---------------OGXinSWAT End------------------------------
 
         do k = 1, sol_nly(j)
           if (ir > 0) exit

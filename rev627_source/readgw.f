@@ -6,13 +6,13 @@
 
 !!    ~ ~ ~ INCOMING VARIABLES ~ ~ ~
 !!    name        |units         |definition
-!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !!    i           |none          |subbasin number
-!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
 !!    ~ ~ ~ OUTGOING VARIABLES ~ ~ ~
 !!    name        |units         |definition
-!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !!    alpha_bf(:) |1/days        |alpha factor for groundwater recession curve
 !!    alpha_bf_d(:) | 1/days     |alpha factor for groudwater recession curve of the deep aquifer
 !!    alpha_bfe(:)|none          |Exp(-alpha_bf(:))
@@ -22,7 +22,7 @@
 !!                               |zone as a result of soil moisture depletion
 !!    deepst(i)   |mm H2O        |depth of water in deep aquifer
 !!    delay(:)    |days          |groundwater delay: time required for water
-!!                               |leaving the bottom of the root zone to 
+!!                               |leaving the bottom of the root zone to
 !!                               |reach the shallow aquifer
 !!    gw_delaye(:)|none          |Exp(-1./(delay(:))
 !!    gw_revap(:) |none          |revap coeff: this variable controls the amount
@@ -33,11 +33,11 @@
 !!    gwht(:)     |m             |groundwater height
 !!    gwminp(:)   |mg P/L        |soluble P concentration in groundwater
 !!                               |loading to reach
-!!    gwno3(:)    |mg N/L        |nitrate-N concentration in groundwater 
+!!    gwno3(:)    |mg N/L        |nitrate-N concentration in groundwater
 !!                               |loading to reach
 !!    gwqmn(:)    |mm H2O        |threshold depth of water in shallow aquifer
 !!                               |required before groundwater flow will occur
-!!    rchrg_dp(:) |none          |recharge to deep aquifer: the fraction of 
+!!    rchrg_dp(:) |none          |recharge to deep aquifer: the fraction of
 !!                               |root zone percolation that reaches the deep
 !!                               |aquifer
 !!    revapmn(:)  |mm H2O        |threshold depth of water in shallow aquifer
@@ -45,21 +45,22 @@
 !!    shallst(:)  |mm H2O        |depth of water in shallow aquifer
 !!    shallst_n(:)|ppm NO3-N     |nitrate concentration in shallow aquifer
 !!                               |converted to kg/ha
-!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
 !!    ~ ~ ~ LOCAL DEFINITIONS ~ ~ ~
 !!    name        |units         |definition
-!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !!    eof         |none          |end of file flag
 !!    titldum     |NA            |title line for .gw file
-!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
 !!    ~ ~ ~ SUBROUTINES/FUNCTIONS CALLED ~ ~ ~
-!!    Intrinsic: Exp    
+!!    Intrinsic: Exp
 
 !!    ~ ~ ~ ~ ~ ~ END SPECIFICATIONS ~ ~ ~ ~ ~ ~
 
       use parm
+      use ROSSMOD
 
       character (len=80) :: titldum
       integer :: eof
@@ -89,14 +90,14 @@
       read (110,*,iostat=eof) hlife_ngw
       if (eof < 0) exit
 !! organic n and p in the lateral flow     - by J.Jeong BREC 2011
-      read (110,*,iostat=eof) lat_orgn(ihru)         
+      read (110,*,iostat=eof) lat_orgn(ihru)
       if (eof < 0) exit
       read (110,*,iostat=eof) lat_orgp(ihru)
       if (eof < 0) exit
       read (110,*,iostat=eof) alpha_bf_d(ihru)
       exit
       end do
-  
+
 !!    set default values for mike van liew
       if (hlife_ngw <= 0.) hlife_ngw = hlife_ngw_bsn
 !!    set default values for mike van liew
@@ -113,8 +114,8 @@
 	  gw_delaye(ihru) = Exp(-1./(delay(ihru) + 1.e-6))
       shallst_n(ihru) = shallst_n(ihru) * shallst(ihru) / 100.
       gw_nloss(ihru) = Exp(-.693 / hlife_ngw)
-      
-!!    alpha baseflow factor for deep aquifer according to Yi Luo      
+
+!!    alpha baseflow factor for deep aquifer according to Yi Luo
       alpha_bfe_d(ihru) = Exp(-alpha_bf_d(ihru))
 
 
@@ -125,6 +126,18 @@
       ch_revap(i) = gw_revap(ihru)
 
       close (110)
+
+      !!-------------------OGXinSWAT Begin------------------------------
+      !!  store initial groundwater table
+      if (ievent>0) then
+        i=ihru
+        if (gwht(i)<0) then
+          call USTOP('Initial DEPgw is negative')
+        endif
+        SOLCOL(i)%DEPGW0=gwht(i)*1e3+shallst(i)/gw_spyld(i)
+      endif
+      !!-------------------------End------------------------------------
+
       return
  5000 format (a)
       end

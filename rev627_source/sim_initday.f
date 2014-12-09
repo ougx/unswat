@@ -14,13 +14,13 @@
 !!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !!    dayl(:)     |hr            |day length for the day in HRU
 !!    flat(:,:)   |mm H2O        |lateral flow storage array
-!!    frad(:,:)   |none          |fraction of solar radiation occuring during 
+!!    frad(:,:)   |none          |fraction of solar radiation occuring during
 !!                               |hour in day in HRU
 !!    hru_ra(:)   |MJ/m^2        |solar radiation for the day in HRU
 !!    hru_rmx(:)  |MJ/m^2        |maximum possible radiation for the day in HRU
 !!    mo_chk      |none          |check for month being simulated; when mo_chk
 !!                               |differs from mo, monthly output is printed
-!!    pst_sed(:,:)|kg/ha         |pesticide loading from HRU sorbed onto 
+!!    pst_sed(:,:)|kg/ha         |pesticide loading from HRU sorbed onto
 !!                               |sediment
 !!    pst_surq(:,:)|kg/ha        |pesticide loading from HRU in the water phase
 !!    rainsub(:,:)|mm H2O        |precipitation for the time step during the
@@ -36,7 +36,7 @@
 !!                               |water stress
 !!    sub_bactlp(:)|# bact/ha     |less persistent bacteria loading on day
 !!                               |from subbasin
-!!    sub_bactp(:)|# bact/ha     |persistent bacteria loading on day from 
+!!    sub_bactp(:)|# bact/ha     |persistent bacteria loading on day from
 !!                               |subbasin
 !!    sub_bd(:)   |Mg/m^3        |average bulk density for subbasin
 !!    sub_cbod(:) |kg cbod       |carbonaceous biological oxygen demand loading
@@ -49,12 +49,12 @@
 !!    sub_no3(:)  |kg N/ha       |NO3 in surface runoff on day in subbasin
 !!    sub_orgn(:) |kg N/ha       |organic nitrogen in soil of subbasin
 !!    sub_orgp(:) |kg P/ha       |organic phosphorus in soil of subbasin
-!!    sub_precip(:)|mm H2O        |water reaching ground surface on day in 
+!!    sub_precip(:)|mm H2O        |water reaching ground surface on day in
 !!                               |subbasin
 !!    sub_pst(:,:)|kg/ha         |pesticide in soil of subbasin
 !!    sub_qd(:)   |mm H2O        |surface runoff loading on day in subbasin
 !!    sub_sedy(:) |metric tons   |sediment loading on day from subbasin
-!!    sub_sep(:)  |mm H2O        |percolation out of soil profile on day in 
+!!    sub_sep(:)  |mm H2O        |percolation out of soil profile on day in
 !!                               |subbasin
 !!    sub_snom(:) |mm H2O        |snow melt for day in subbasin
 !!    sub_solp(:) |kg P/ha       |soluble P in surface runoff on day in subbasin
@@ -65,7 +65,7 @@
 !!                               |subbasin
 !!    sub_surfq(:)|mm H2O        |surface runoff generated on day in subbasin
 !!    sub_sw(:)   |mm H2O        |amount of water in soil on day in subbasin
-!!    sub_tileno3 |kg N/ha       |NO3 in tile flow on day in subbasin       
+!!    sub_tileno3 |kg N/ha       |NO3 in tile flow on day in subbasin
 !!    sub_tran(:) |mm H2O        |transmission losses on day in subbasin
 !!    sub_wyld(:) |mm H2O        |water yield on day in subbasin
 !!    sub_yorgn(:)|kg N/ha       |organic N loading on day in subbasin
@@ -84,6 +84,8 @@
 !!    ~ ~ ~ ~ ~ ~ END SPECIFICATIONS ~ ~ ~ ~ ~ ~
 
       use parm
+      use ROSSMOD, only: tstep
+
 
       !!initialize variables at beginning of day
       cbodu = 0.
@@ -206,7 +208,7 @@
       wshddayo = 0.
 
       mo_chk = i_mo
-!----------------------------------------------------        
+!----------------------------------------------------
 ! added by J.Jeong for urban modeling 4/29/2008
       ubnrunoff = 0.
       ubntss = 0.
@@ -217,7 +219,7 @@
 	  sub_hhsedy = 0.
       sub_atmp = 0.
 	  rchhr = 0.
-!-----------------------------------------------------        
+!-----------------------------------------------------
 
       !!add by zhang
       !!==========================
@@ -227,12 +229,12 @@
         percc_d = 0.
         foc_d = 0.
         NPPC_d = 0.
-        rsdc_d = 0. 
+        rsdc_d = 0.
         grainc_d = 0.
         stoverc_d = 0.
         emitc_d = 0.
-        soc_d = 0.  
-        rspc_d = 0.   
+        soc_d = 0.
+        rspc_d = 0.
 
 	sub_sedc_d =0.
 	sub_surfqc_d=0.
@@ -248,6 +250,13 @@
 	sub_rspc_d =0.
       !!add by zhang
       !!==========================
-	
+
+
+      !!---------------OGXinSWAT Begin----------------------------
+      !!
+      if (ievent>0) then
+          tstep=tstep+24.
+      endif
+      !!--------------------End--------------------------------
       return
       end

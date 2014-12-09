@@ -107,6 +107,7 @@
 !!    ~ ~ ~ ~ ~ ~ END SPECIFICATIONS ~ ~ ~ ~ ~ ~
 
       use parm
+      use ROSSMOD
 
       integer :: j, ib, ly
 !!    real, parameter :: esd = 500., etco = 0.80, effnup = 0.1
@@ -243,14 +244,14 @@
       eosl = 0.
       eosl = esleft
 
-      !!---------------OGXinSWAT Begin----------------------------
+      !!-------------------OGXinSWAT Begin------------------------------
       !!  Soil evaporation and transpiration
       if (ievent>0) then
-        !SOLCOL(j)%EMAX = esleft
-        !SOLCOL(j)%TMAX = ep_max
+        SOLCOL(j)%ESMAX = esleft/24.
+        SOLCOL(j)%EPMAX = ep_max/24.
         return
       endif
-      !!---------------OGXinSWAT End----------------------------
+      !!-------------------------End------------------------------------
 
 
       do ly = 1, sol_nly(j)

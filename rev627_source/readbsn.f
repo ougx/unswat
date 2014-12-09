@@ -27,14 +27,14 @@
 !!                               |when bacteria levels drop to this amount the
 !!                               |model considers bacteria in the soil to be
 !!                               |insignificant and sets the levels to zero
-!!    bactmx      |none          |bacteria percolation coefficient 
+!!    bactmx      |none          |bacteria percolation coefficient
 !!                               |Ratio of solution bacteria in surface layer
 !!                               |to solution bacteria in percolate
 !!    cdn         |none          |denitrification exponential rate coefficient
 !!    cmn         |none          |rate factor for humus mineralization on
 !!                               |active organic N
-!!    cncoef      |none          |plant ET curve number coefficient 
-!!    cnfroz      |              |Drainge coefficient (mm day -1) 
+!!    cncoef      |none          |plant ET curve number coefficient
+!!    cnfroz      |              |Drainge coefficient (mm day -1)
 !!    depimp_bsn  |mm            |depth to impervious layer. Used to model
 !!                               |perched water tables in all HRUs in watershed
 !!    drain_co_bsn |mm-day-1     |Drainage coeffcient (range 10.0 - 51.0)
@@ -44,14 +44,14 @@
 !!    esco(:)     |none          |soil evaporation compensation factor (0-1)
 !!    evlai       |none          |leaf area index at which no evaporation
 !!                               |occurs.  This variable is used in ponded HRUs
-!!                               |where evaporation from the water surface is 
+!!                               |where evaporation from the water surface is
 !!                               |restricted by the plant canopy cover. Evapor-
 !!                               |ation from the water surface equals potential
 !!                               |ET when LAI = 0 and decreased linearly to O
 !!                               |when LAI = EVLAI
-!!    evrch       |none          |Reach evaporation adjustment factor. 
+!!    evrch       |none          |Reach evaporation adjustment factor.
 !!                               |Evaporation from the reach is multiplied by
-!!                               |EVRCH. This variable was created to limit the 
+!!                               |EVRCH. This variable was created to limit the
 !!                               |evaporation predicted in arid regions.
 !!    ffcb        |none          |initial soil water content expressed as a
 !!                               |fraction of field capacity
@@ -61,7 +61,7 @@
 !!                                  Cmin (as described in manual)
 !!                                       = 1 for new C-factor calculation
 !!                                  from RUSLE (no minimum needed)
-!!    icn         |none          |CN method flag: 
+!!    icn         |none          |CN method flag:
 !!                               |(for testing alternative method)
 !!                               |0 use traditional SWAT method which bases
 !!                               |  CN on soil moisture
@@ -91,7 +91,7 @@
 !!    irtpest     |none          |number of pesticide to be routed through the
 !!                               |watershed
 !!    ised_det    |none          |max half-hour rainfall fraction calc option:
-!!                               |0 generate max half-hour rainfall fraction from 
+!!                               |0 generate max half-hour rainfall fraction from
 !!                               |  triangular distribution
 !!                               |1 use monthly mean max half-hour rainfall
 !!                               |  fraction
@@ -101,14 +101,14 @@
 !! drainmod tile equations   01/2006
 !!    itdrn       |none          |tile drainage equations flag/code
 !!                               |1 simulate tile flow using subroutine drains(wt_shall)
-!!                               |0 simulate tile flow using subroutine origtile(wt_shall,d) 
+!!                               |0 simulate tile flow using subroutine origtile(wt_shall,d)
 !!    iwtdn       |none          |water table depth algorithms flag/code
 !!                               |1 simulate wt_shall using subroutine new water table depth routine
 !!                               |0 simulate wt_shall using subroutine original water table depth routine
 !!    ismax       |none          |maximum depressional storage selection flag/code
-!!                               |1 dynamic stmaxd computed as a function of random roughness and rain intensity 
+!!                               |1 dynamic stmaxd computed as a function of random roughness and rain intensity
 !!                               |by depstor.f
-!!                               |0 static stmaxd read from .bsn for the global value or .sdr for specific hrus   
+!!                               |0 static stmaxd read from .bsn for the global value or .sdr for specific hrus
 !! drainmod tile equations   01/2006
 !!    iwq         |none          |stream water quality code
 !!                               |0 do not model stream water quality
@@ -154,7 +154,7 @@
 !!    p_updis     |none          |phosphorus uptake distribution parameter
 !!                               |This parameter controls the amount of
 !!                               |phosphorus removed from the different soil
-!!                               |layers by the plant. In particular, this 
+!!                               |layers by the plant. In particular, this
 !!                               |parameter allows the amount of phosphorus
 !!                               |removed from the surface layer via plant
 !!                               |uptake to be controlled. While the relation-
@@ -167,7 +167,7 @@
 !!    percop      |none          |pesticide percolation coefficient (0-1)
 !!                               |0: concentration of pesticide in surface
 !!                               |   runoff is zero
-!!                               |1: percolate has same concentration of 
+!!                               |1: percolate has same concentration of
 !!                               |   pesticide as surface runoff
 !!    petfile     |NA            |potential ET file name (.pet)
 !!    phoskd      |none          |Phosphorus soil partitioning coefficient
@@ -176,15 +176,15 @@
 !!    pperco      |none          |phosphorus percolation coefficient
 !!                               |ratio of soluble phosphorus in surface
 !!                               |to soluble phosphorus in percolate
-!!    prf_bsn     |none          |Basinwide peak rate adjustment factor for sediment 
-!!                               |routing in the channel. Allows impact of 
-!!                               |peak flow rate on sediment routing and 
+!!    prf_bsn     |none          |Basinwide peak rate adjustment factor for sediment
+!!                               |routing in the channel. Allows impact of
+!!                               |peak flow rate on sediment routing and
 !!                               |channel reshaping to be taken into account.
 !!    psp         |none          |Phosphorus availibility index. The fraction
 !!                               |of fertilizer P remaining in labile pool
 !!                               |after initial rapid phase of P sorption.
 !!    rcn_sub_bsn |mg/kg         |Concentration of nitrogen in the rainfall
-!!    re_bsn      |mm            |Effective radius of drains (range 3.0 - 40.0)  
+!!    re_bsn      |mm            |Effective radius of drains (range 3.0 - 40.0)
 !!    res_stlr_co |none          |reservoir sediment settling coefficient
 !!    rsd_covco   |              |residue cover factor for computing frac of cover
 !!    rsdco       |none          |residue decomposition coefficient
@@ -198,7 +198,7 @@
 !!                               |is equally likely to be rain as snow/freezing
 !!                               |rain.
 !!    sdrain_bsn  |mm            |Distance bewtween two drain or tile tubes (range 7600.0 - 30000.0)
-!!    sstmaxd(:)  |mm            |static maximum depressional storage; read from .sdr 
+!!    sstmaxd(:)  |mm            |static maximum depressional storage; read from .sdr
 !----------------------------retention parameter adjustment factor D. Moriasi 4/8/2014
 !!    r2adj_bsn   |none          |basinwide retention parameter adjustment factor (greater than 1)! D. Moriasi 4/8/2014
 !!    smfmn       |mm/deg C/day  |Minimum melt rate for snow during year (Dec.
@@ -207,10 +207,10 @@
 !!    smfmx       |mm/deg C/day  |Maximum melt rate for snow during year (June
 !!                               |21) where deg C refers to the air temperature.
 !!                               |SMFMX and SMFMN allow the rate of snow melt
-!!                               |to vary through the year. These parameters 
+!!                               |to vary through the year. These parameters
 !!                               |are accounting for the impact of soil
 !!                               |temperature on snow melt.
-!!    smtmp       |deg C         |Snow melt base temperature 
+!!    smtmp       |deg C         |Snow melt base temperature
 !!                               |Mean air temperature at which snow melt will
 !!                               |occur.
 !!    smxco       |              |adjustment factor for max curve number s factor (0-1)
@@ -218,14 +218,14 @@
 !!                               |snow cover. SWAT assumes a nonlinear relation-
 !!                               |ship between snow water and snow cover.
 !!    snocov1     |none          |1st shape parameter for snow cover equation
-!!                               |This parameter is determined by solving the 
+!!                               |This parameter is determined by solving the
 !!                               |equation for 50% snow cover
 !!    snocov2     |none          |2nd shape parameter for snow cover equation
-!!                               |This parameter is determined by solving the 
+!!                               |This parameter is determined by solving the
 !!                               |equation for 95% snow cover
 !!    snocovmx    |mm H2O        |Minimum snow water content that corresponds to
-!!                               |100% snow cover. If the snow water content is 
-!!                               |less than SNOCOVMX, then a certain percentage 
+!!                               |100% snow cover. If the snow water content is
+!!                               |less than SNOCOVMX, then a certain percentage
 !!                               |of the ground will be bare.
 !!    spcon       |none          |linear parameter for calculating sediment
 !!                               |reentrained in channel sediment routing
@@ -247,7 +247,7 @@
 !!                               |temp) as the lag factor goes to zero, the snow
 !!                               |pack's temperature will be less influenced by
 !!                               |the current day's air temperature
-!!    trnsrch     |none          |fraction of transmission losses from main 
+!!    trnsrch     |none          |fraction of transmission losses from main
 !!                               |channel that enter deep aquifer
 !!    ubw         |none          |water uptake distribution parameter
 !!                               |This parameter controls the amount of
@@ -260,21 +260,21 @@
 !!                               |affected by the depth of the soil profile, in
 !!                               |general, as UBW increases the amount of water
 !!                               |removed from the surface layer relative to the
-!!                               |amount removed from the entire profile 
+!!                               |amount removed from the entire profile
 !!                               |increases
 !!    uobn        |none          |nitrogen uptake normalization parameter
 !!                               |This variable normalizes the nitrogen uptake
 !!                               |so that the model can easily verify that
-!!                               |upake from the different soil layers sums to 
+!!                               |upake from the different soil layers sums to
 !!                               |1.0
 !!    uobp        |none          |phosphorus uptake normalization parameter
 !!                               |This variable normalizes the phosphorus uptake
 !!                               |so that the model can easily verify that
-!!                               |uptake from the different soil layers sums to 
+!!                               |uptake from the different soil layers sums to
 !!                               |1.0
 !!    uobw        |none          |water uptake normalization parameter
-!!                               |This variable normalizes the water uptake so 
-!!                               |that the model can easily verify that uptake 
+!!                               |This variable normalizes the water uptake so
+!!                               |that the model can easily verify that uptake
 !!                               |from the different soil layers sums to 1.0
 !!    wdlpf       |1/day         |Die-off factor for less persistent bacteria on
 !!                               |foliage.
@@ -284,11 +284,11 @@
 !!                               |in streams
 !!    wdlpres     |1/day         |Die-off factor for less persistent bacteria
 !!                               |in reservoirs
-!!    wdlps       |1/day         |Die-off factor for less persistent bacteria 
+!!    wdlps       |1/day         |Die-off factor for less persistent bacteria
 !!                               |absorbed to soil particles.
-!!    wdpf        |1/day         |Die-off factor for persistent bacteria on 
+!!    wdpf        |1/day         |Die-off factor for persistent bacteria on
 !!                               |foliage.
-!!    wdpq        |1/day         |Die-off factor for persistent bacteria in 
+!!    wdpq        |1/day         |Die-off factor for persistent bacteria in
 !!                               |soil solution.
 !!    wdprch      |1/day         |Die-off factor for persistent bacteria in
 !!                               |streams
@@ -350,7 +350,7 @@
       character (len=13) :: wwqfile
       integer :: eof, numlu
       real :: escobsn, epcobsn
-      real :: r2adjbsn  !D. Moriasi 4/8/2014    
+      real :: r2adjbsn  !D. Moriasi 4/8/2014
 
 !!    initialize variables
       eof = 0
@@ -462,7 +462,7 @@
       if (eof < 0) exit
       read (103,*,iostat=eof) dorm_hr
       if (eof < 0) exit
-      read (103,*,iostat=eof) smxco  
+      read (103,*,iostat=eof) smxco
       if (eof < 0) exit
       read (103,*,iostat=eof) fixco
       if (eof < 0) exit
@@ -476,7 +476,7 @@
       if (eof < 0) exit
       read (103,*,iostat=eof) hlife_ngw_bsn
       if (eof < 0) exit
-      read (103,1000,iostat=eof) titldum    
+      read (103,1000,iostat=eof) titldum
       if (eof < 0) exit
       read (103,*,iostat=eof) bc1_bsn
       if (eof < 0) exit
@@ -503,22 +503,22 @@
 !     if (eof < 0) exit
 	read (103,*,iostat=eof) bf_flg
  	if (eof < 0) exit
-      read (103,*,iostat=eof) iuh 
+      read (103,*,iostat=eof) iuh
 	if (eof < 0) exit
-      read (103,*,iostat=eof) uhalpha 
+      read (103,*,iostat=eof) uhalpha
 	if (eof < 0) exit
       read (103,*,iostat=eof) titldum
  	read (103,'(a130)') tlu
        do ii=3,len_trim(tlu)
-          if ((tlu(ii:ii).eq.','.and.tlu(ii-1:ii-1).ne.',').or.   
+          if ((tlu(ii:ii).eq.','.and.tlu(ii-1:ii-1).ne.',').or.
      &       (tlu(ii:ii).eq.' '.and.tlu(ii-1:ii-1).ne.' ')) then
              numlu = numlu + 1
-          end if	   
-       end do 
+          end if
+       end do
        if (len_trim(tlu).le.3) numlu = 0
        backspace(103)
        read (103,*) (lu_nodrain(kk), kk=1,numlu)
-       
+
 
  !!   subdaily erosion modeling by Jaehak Jeong
       read (103,*,iostat=eof) titldum
@@ -535,7 +535,7 @@
 	if (eof < 0) exit
       read (103,*,iostat=eof) ch_d50
 	if (eof < 0) exit
-      read (103,*,iostat=eof) sig_g 
+      read (103,*,iostat=eof) sig_g
 	if (eof < 0) exit
 !!    Drainmod input variables - 01/2006
       read (103,*,iostat=eof) re_bsn
@@ -575,14 +575,21 @@
 !!    copy global values to local HRUs
       esco = escobsn
       epco = epcobsn
-      
+
 !!    set default values for undefined parameters
-!     if (ievent == 1) nstep = 24
+      !!-------------------OGXinSWAT Begin------------------------------
+      !!  Set the global step parameters
+      if (ievent == 1) then
+        nstep = 24    !number of time steps each day
+        idt=60        !minutes in a time step
+      endif
+      !!--------------------End--------------------------------
+
       if (r2adj_bsn < 1.e-6) r2adj_bsn = 1.
-      if (drain_co_bsn < 1.e-6) drain_co_bsn = 10. 
- !!Parameter variables added D. Moriasi 4/8/2014  
-      if (sstmaxd_bsn < 1.e-6) sstmaxd_bsn = 20. 
-  !!----------------------------------------------------------------        
+      if (drain_co_bsn < 1.e-6) drain_co_bsn = 10.
+ !!Parameter variables added D. Moriasi 4/8/2014
+      if (sstmaxd_bsn < 1.e-6) sstmaxd_bsn = 20.
+  !!----------------------------------------------------------------
       if (res_stlr_co < 1.e-6) res_stlr_co = .184
       if (depimp_bsn < 1.e-6) depimp_bsn = 6000.
       if (bact_swf < 1.e-6) bact_swf = 0.15
@@ -639,7 +646,7 @@
       if (decr_min <= 1.e-6) decr_min = 0.01
 !!    mike van liew additions for basins.bsn
 
-	! check parameter values for urban project jaehak 9/15/09 
+	! check parameter values for urban project jaehak 9/15/09
 	 if(iuh/=1.and.iuh/=2) then
 	      iuh = 1
 	 endif
@@ -690,7 +697,7 @@
       nactfr = 0.02
       abstinit = iabstr
 
-      
+
       close (103)
        !!add by zhang
       !!=====================
@@ -702,27 +709,27 @@
      &'sol_HPC','sol_BMC','sol_LSN','sol_LMN',
      &'sol_HPN','sol_HSN','sol_BMN','sol_no3',
      &'sol_fop','sol_orgp','sol_actp','sol_stap',
-     &'sol_solp' 
+     &'sol_solp'
 
       open (100,file="cswat_daily.txt",recl=786)
       write (100,5104) 'year','day','hru','rsdc','sedc',
      &'percc','latc','emitc','grainc','surfq_c',
      &'stoverc','NPPC','foc','rspc','tot_mass','tot_cmass','tot_nmass',
      &'tot_LSC','tot_LMC','tot_HSC','tot_HPC','tot_BMC','Biom_C','rwtf',
-     &'tot_no3_nh3','wdntl', 
+     &'tot_no3_nh3','wdntl',
      &'ET','Tillfactor','SW1','SW2','SW3','SW4','SW5','SW6','SW7','SW8',
      &'SW9','SW10','SW11',
      &'WFSC1','WFSC2','WFSC3','WFSC4','WFSC5','WFSC6','WFSC7','WFSC8',
      &'WFSC9','WFSC10','WFSC11'
-      endif       
+      endif
       !!add by zhang
       !!=====================
 
 !	open (111, file="final_n_balance.txt")
 !	open (112, file="final_yields.txt")
-	!! carbon output ends 
-     
-      
+	!! carbon output ends
+
+
       return
  1000 format (a)
  1001 format (i4)

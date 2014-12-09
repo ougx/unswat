@@ -131,6 +131,7 @@
 !!    ~ ~ ~ ~ ~ ~ END SPECIFICATIONS ~ ~ ~ ~ ~ ~
 
       use parm
+      use ROSSMOD
 
       integer :: j,sb,kk
       real :: tmpk, d, gma, ho, pet_alpha, aphu, phuop
@@ -223,25 +224,27 @@
         if (auto_wstr(j) > 1.e-6 .and. irrsc(j) > 2) call autoirr
 
 
-        !!---------------OGXinSWAT Begin----------------------------
+        !!-------------------OGXinSWAT Begin------------------------------
         !!  skip the soil water pocolation
         if (ievent>0) then
-          precipdt=precipdt+aird(j)/nstep + pot_seep(j)/nstep   !!OGX: add the auto irrigation and pothole seepage
+          SOLCOL(j)%IRRI=SOLCOL(j)%IRRI+aird(j)/24.
+          SOLCOL(j)%RUNON=SOLCOL(j)%RUNON+pot_seep(j)/24.   !!OGX: add the auto irrigation and pothole seepage
+          pot_seep(j) = 0.
         else
           !! perform soil water routing
           call percmain
         endif
-        !!---------------OGXinSWAT End----------------------------
+        !!--------------------End--------------------------------
 
         !! compute evapotranspiration
         call etpot
 !        if (pot_vol(j) < 1.e-6) call etact
         call etact
 
-        !!---------------OGXinSWAT Begin----------------------------
+        !!-------------------OGXinSWAT Begin------------------------------
         !!  Soil evaporation and transpiration
         if (ievent>0) then
-          !call TRS(j)
+          call TRS(j)
           inflpcp = Max(0.,precipday - surfq(j))
 
           !!irrigation runoff
@@ -276,7 +279,7 @@
           if (qday < 0.) qday = 0.
 
         endif
-        !!---------------OGXinSWAT End----------------------------
+        !!--------------------End--------------------------------
 
         !! compute water table depth using climate drivers
         call wattable

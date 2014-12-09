@@ -1,5 +1,5 @@
       subroutine gwmod
-      
+
 !!    ~ ~ ~ PURPOSE ~ ~ ~
 !!    this subroutine estimates groundwater contribution to
 !!    streamflow
@@ -11,7 +11,7 @@
 !!    alpha_bfe(:)|none          |Exp(-alpha_bf(:))
 !!    deepst(:)   |mm H2O        |depth of water in deep aquifer
 !!    ihru        |none          |HRU number
-!!    gw_delaye(:)|none          |Exp(-1./(delay(:)) where delay(:) is the 
+!!    gw_delaye(:)|none          |Exp(-1./(delay(:)) where delay(:) is the
 !!                               |groundwater delay (time required for water
 !!                               |leaving the bottom of the root zone to reach
 !!                               |the shallow aquifer; units-days)
@@ -48,7 +48,7 @@
 !!                               |current day in HRU
 !!    rchrg(:)    |mm H2O        |amount of water recharging both aquifers on
 !!                               |current day in HRU
-!!    revapday    |mm H2O        |amount of water moving from the shallow 
+!!    revapday    |mm H2O        |amount of water moving from the shallow
 !!                               |aquifer into the soil profile or being taken
 !!                               |up by plant roots in the shallow aquifer
 !!    shallst(:)  |mm H2O        |depth of water in shallow aquifer
@@ -84,42 +84,58 @@
 
 !! add seepage from secondary channels, ponds, and wetlands;
       rchrg_karst = tloss + twlpnd + twlwet
-!! compute shallow aquifer level for current day, assumes karst losses 
+
+      !!-------------------OGXinSWAT Begin------------------------------
+      !!  skip recharge calculation
+      if (ievent==0) then
+!! compute shallow aquifer level for current day, assumes karst losses
 !! infiltrate at the same speed as what goes through the soil profile.
-      rchrg(j) = 0.
-      rchrg(j) = (1.-gw_delaye(j)) * (sepbtm(j) + gwq_ru(j) +           
+        rchrg(j) = 0.
+        rchrg(j) = (1.-gw_delaye(j)) * (sepbtm(j) + gwq_ru(j) +
      &                             rchrg_karst) + gw_delaye(j) * rchrg1
-      if (rchrg(j) < 1.e-6) rchrg(j) = 0.
-      gwq_ru(j) = 0.
+        if (rchrg(j) < 1.e-6) rchrg(j) = 0.
+        gwq_ru(j) = 0.
+      else
+        rchrg(j) =rchrg(j) + gwq_ru(j)+rchrg_karst
+      endif
+      !!-------------------------End------------------------------------
 
 !! compute deep aquifer level for day
       gwseep = rchrg(j) * rchrg_dp(j)
       deepst(j) = deepst(j) + gwseep
 
       shallst(j) = shallst(j) + (rchrg(j) - gwseep)
-      gwht(j) = gwht(j) * alpha_bfe(j) + rchrg(j) * (1. - alpha_bfe(j)) 
+      gwht(j) = gwht(j) * alpha_bfe(j) + rchrg(j) * (1. - alpha_bfe(j))
      &    / (800. * gw_spyld(j) * alpha_bf(j) + 1.e-6)
       gwht(j) = Max(1.e-6, gwht(j))
 
 !! compute groundwater contribution to streamflow for day
       if (shallst(j) > gwqmn(j)) then
-        gw_q(j) = gw_q(j) * alpha_bfe(j) + (rchrg(j) - gwseep ) *       
+        gw_q(j) = gw_q(j) * alpha_bfe(j) + (rchrg(j) - gwseep ) *
      &                                               (1. - alpha_bfe(j))
       else
         gw_q(j) = 0.
       end if
 
-!! compute revap to soil profile/plant roots
-      revapday = gw_revap(j) * pet_day
-      if (shallst(j) < revapmn(j)) then
-        revapday = 0.
+      !!-------------------OGXinSWAT Begin------------------------------
+      !!  skip revapday calculation
+      if (ievent==0) then
+  !! compute revap to soil profile/plant roots
+        revapday = gw_revap(j) * pet_day
+        if (shallst(j) < revapmn(j)) then
+          revapday = 0.
+        else
+          shallst(j) = shallst(j) - revapday
+          if (shallst(j) < revapmn(j)) then
+            revapday = shallst(j) + revapday - revapmn(j)
+            shallst(j) = revapmn(j)
+          end if
+        end if
       else
         shallst(j) = shallst(j) - revapday
-        if (shallst(j) < revapmn(j)) then
-          revapday = shallst(j) + revapday - revapmn(j)
-          shallst(j) = revapmn(j)
-        end if
-      end if
+      endif
+      !!-------------------------End------------------------------------
+
 
 !! remove ground water flow from shallow aquifer storage
       if (shallst(j) >= gwqmn(j)) then

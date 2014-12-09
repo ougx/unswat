@@ -150,6 +150,9 @@
       end do
 
       !! after peak rainfall and before end of storm
+      !!-----------OGXinSWAT
+      !itime = 1
+      !!----------End
       do
         if (pt >= Int(dur * 60.)) exit
         rx = 0.
