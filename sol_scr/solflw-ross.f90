@@ -25,6 +25,7 @@ subroutine TRS(k)
 
   real :: s0
   real :: s1
+  real :: rain
 
   real :: WCSTOR0, WCSTOR1               !water storage, before and after a time step
   real :: WCSTOR0TOT, WCSTOR1TOT         !water storage, before and after a day
@@ -153,6 +154,7 @@ subroutine TRS(k)
   evap=ZERO
   infil=ZERO
   drn=ZERO
+  rain=scol%HPOND
 
   !DZ(nun)=DZ(nun)-dzgw
 
@@ -179,7 +181,7 @@ subroutine TRS(k)
       QUB(iSTEP)=ZERO
     endif
     qNET=qNET+(qprec-qevap)*(tstep(iSTEP)-tstep(iSTEP-1))
-
+    rain=rain+qprec*(tstep(iSTEP)-tstep(iSTEP-1))
     call solve(k,tstep(iSTEP-1),tstep(iSTEP),qprec,qevap,nun,DZ,jt,scol%hqmin,HMIN,dzgw,scol%HPOND,scol%Kdn,scol%Kup,scol%var, &
                 FZN,scol%POV,FiveThd,evap,runoff(iStep),infil,drn,qsum,sicum,socum,srcum, &
                 scol%dtmin,scol%dtmax,scol%dSmax,scol%dSmaxr,scol%dSfac,scol%dpmaxr)
@@ -221,7 +223,8 @@ subroutine TRS(k)
     src=sum(srcum)
     write (IFBAL,'(I5,16(F10.3))') k,tstep(mstep)/24.,scol%DEPGW,qNET,scol%EPMAX*24.,s0,s1, &
                               sum(runoff),scol%HPOND,infil,evap,drn,sic,soc,src, &
-                              s0+infil-drn+sic-soc-src-s1,shallst(k)
+                              s0+infil-drn+sic-soc-src-s1, &
+                              rain-(s1-s0+scol%HPOND+drn+evap+soc+src-sic)
     write (IFDEBUG,*) "drn"
     write (IFDEBUG,*) drn
     write (IFDEBUG,*) ""

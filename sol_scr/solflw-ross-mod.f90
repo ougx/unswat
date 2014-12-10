@@ -851,6 +851,7 @@ contains
     ! get K, Kh and phi at hETmin (hETmin is smallest h, stored in hyprops)
     !OGX: hETmin is the lowest value control ET
     call hyofh(hETmin,j,Kmin1,KhETmin1,phimin1)
+    if (Ku>ZERO) Kmin1=Ku
     dz=half*(dx(1:n-1)+dx(2:n)) ! flow paths
 
     !----- set up for boundary conditions
@@ -957,144 +958,107 @@ contains
         !            vtop=v0et
         !          else
 
-        if (h0>zero) then
-          ! ponding
-          ns=0
-          if (Kd>ZERO) then
-              !            h, phi,                 phiS,K,   KS
-            vtop=vars(1,h0,(h0-p%HBUB)*p%KSAT+p%phie,zero,Kd,ZERO)
-          else
-            !            h, phi,                 phiS,K,   KS
-            vtop=vars(1,h0,(h0-p%HBUB)*p%KSAT+p%phie,zero,p%KSAT,ZERO)
-          endif
-
-        elseif (qpme<ZERO) then
-          !et flux boundary
+        if (var(1)%phi<=phip.and.h0<=zero.and.nsat<n) then ! no ponding
           ns=1 ! start index for eqns
-          if (Ku>ZERO) then     !OGX: hETmin will be threthold for restrited ET
-            !            h,  phi,    phiS,K,    KS
-            vtop=vars(0,hETmin,phimin1,zero,Ku,ZERO) ! vars at soil surface
-          else
-            !            h,  phi,    phiS,K,    KS
-            vtop=vars(0,hETmin,phimin1,zero,Kmin1,ZERO) ! vars at soil surface
-          endif
-        else
-          ns=1
-          if (Kd>ZERO) then
-              !            h, phi,                 phiS,K,   KS
-            vtop=vars(1,hqmin,(hqmin-p%HBUB)*p%KSAT+p%phie,zero,Kd,ZERO)
-          else
-            !           h,    phi,                      phiS,K,   KS
-            vtop=vars(1,hqmin,(hqmin-p%HBUB)*p%KSAT+p%phie, zero,p%KSAT,ZERO)
-          endif
-        endif
+          vtop=vars(0,hETmin,phimin1,zero,Kmin1,zero) ! vars at soil surface
+        else ! ponding
+          ns=0
+          vtop=vars(1,h0,(h0-p%HBUB)*p%KSAT+p%phie,zero,p%KSAT,zero)
+        end if
+
+!--------------------------------------------------------------------------------
+!        if (h0>zero) then
+!          ! ponding
+!          ns=0
+!          if (Kd>ZERO) then
+!              !            h, phi,                 phiS,K,   KS
+!            vtop=vars(1,h0,(h0-p%HBUB)*p%KSAT+p%phie,zero,Kd,ZERO)
+!          else
+!            !            h, phi,                 phiS,K,   KS
+!            vtop=vars(1,h0,(h0-p%HBUB)*p%KSAT+p%phie,zero,p%KSAT,ZERO)
+!          endif
+
+!        elseif (qpme>ZERO) then
+!          ns=1
+!          if (Kd>ZERO) then
+!              !            h, phi,                 phiS,K,   KS
+!            vtop=vars(1,hqmin,(hqmin-p%HBUB)*p%KSAT+p%phie,zero,Kd,ZERO)
+!          else
+!            !           h,    phi,                      phiS,K,   KS
+!            vtop=vars(1,hqmin,(hqmin-p%HBUB)*p%KSAT+p%phie, zero,p%KSAT,ZERO)
+!          endif
+!        else
+!          !et flux boundary
+!          ns=1 ! start index for eqns
+!          if (Ku>ZERO) then     !OGX: hETmin will be threthold for restrited ET
+!            !            h,  phi,    phiS,K,    KS
+!            vtop=vars(0,hETmin,phimin1,zero,Ku,ZERO) ! vars at soil surface
+!          else
+!            !            h,  phi,    phiS,K,    KS
+!            vtop=vars(0,hETmin,phimin1,zero,Kmin1,ZERO) ! vars at soil surface
+!          endif
+!        endif
+!--------------------------------------------------------------------------------
 
 
-        !          if (var(1)%phi<=phip.and.h0<=zero.and.nsat<n) then ! no ponding
-        !            ns=1 ! start index for eqns
-        !            !            h,  phi,    phiS,K,    KS
-        !            vtop=vars(0,hETmin,phimin1,zero,Kmin1,ZERO) ! vars at soil surface  !OGX: hETmin will be threthold for restrited ET
-        !            qov=zero
-        !          else
-        !            ns=0
-        !            !            h, phi,                 phiS,K,   KS
-        !            vtop=vars(1,h0,(h0-p%HBUB)*p%KSAT+p%phie,zero,p%KSAT,ZERO)
-        !          end if
-        ! get bottom bdry condn
-        !          if (botbc=="seepage") then
-        !            if (var(n)%h>-half*gf*dx(n)) then
-        !              getqn=.true.
-        !              p=>SOLMAT(jt(n))
-        !              vbot=vars(1,zero,(zero-p%HBUB)*p%KSAT+p%phie,zero,p%KSAT,zero)
-        !            else
-        !              getqn=.false.
-        !            end if
-        !          end if
-        ! get fluxes
-        !if (debuGGing) write(IFDEBUG,*) "S,K:", S
-        !if (debuGGing) write(IFDEBUG,*) "dz ", dz
-        !if (debuGGing) write(IFDEBUG,*) "getq0,getqn: ", getq0,getqn
-        !if (debuGGing) write(IFDEBUG,*) "vtop: ", vtop
-        !if (debuGGing) write(IFDEBUG,*) "vbot: ", vbot
-        !if (debuGGing) call print_var(IFDEBUG, n, var, t)
+
         call getfluxes(n,jt,dx,dz,vtop,vbot,var,hint,phimin,q,qya,qyb, &
           iflux,init,getq0,getqn,dpmaxr)
         ! adjust for top and bottom bdry condns
         !qprec1=qprec(it) ! may change qprec1 to maintain pond if required
         qov=zero
         qhov=zero
-        if (ns==1) then   !OGX: starting index is 1
-          if (qpme<zero) then
-            if (q(0)<qpme) then
-              q(0)=qpme; qyb(0)=zero    !(partial q0)/ (partial S1) = 0
-            else
-              limitET=.true.    !OGX: the q is "negatively" larger than the possible ET rate
-            end if
+        if (ns==1) then
+          if (q(0)<qpme) then
+            q(0)=qpme; qyb(0)=zero
           else
-            if (q(0)>qpme) then
-              q(0)=qpme; qyb(0)=zero
-            else
-              !OGX: initial ponding occurs
-              !OGX: the top boundary is set as hqmin
-              !OGX: the rest of infiltration will become runoff
-              initpond= .true.
-            end if
-          endif
-
-
-          ! correction 10/2/2010
-          !maxpond=.false.
-        else  !OGX: starting index is 0, ponding
-
-          !OGX: comment the following lines for runoff generation
-          !            if (h0>=h0max.and.qpme>q(0)) then
-          !              maxpond=.true.
-          !              ns=1
-          !            else
-          !              maxpond=.false.
-          !            end if
-          !maxpond=.true.
-          ! change qya(0) from dq/dphi (returned by getfluxes) to dq/dh
-          qya(0)=SOLMAT(jt(1))%KSAT*qya(0)
+            limitET=.true.    !OGX: the q is "negatively" larger than the possible ET rate
+          end if
+        else
+          qya(0)=p%KSAT*qya(0)
           pond= .true.
-
-          !OGX: include runoff
           if (h0>=hqmin) then
             qov=snlmm*h0**kappa
             qhov=kappa*snlmm*h0**(kappa-1.0)
-          endif
-
+          end if
         end if
-        !          if (botbc/="constant head") then
-        !            select case (botbc)
-        !              case ("zero flux")
-        !                q(n)=zero
-        !                qya(n)=zero
-        !              case ("free drainage")
-        !                v=>var(n)
-        !                q(n)=gf*v%K
-        !                if (v%isat==0) then
-        !                  qya(n)=gf*v%KS
-        !                else
-        !                  qya(n)=zero
-        !                end if
-        !              case ("seepage")
-        !                if (var(n)%h<=-half*gf*dx(n)) then
-        !                  q(n)=zero
-        !                  qya(n)=zero
-        !                end if
-        !              case default
-        !                write (*,*) "solve: illegal bottom boundary condn"
-        !                stop
-        !            end select
-        !          end if
 
-        !===== OGX: lateral flows start
-        !							if (extraction) then ! get rate of extraction - ignore solute
-        !								call qexsub(var%h,jt,qex,qexd)
-        !								qexd=qexd*var%phiS/var%K ! to get deriv qexS
-        !							end if
-        !===== OGX: lateral flow end
+!--------------------------------------------------------------------------------
+!        if (ns==1) then   !OGX: starting index is 1
+!          if (qpme<zero) then
+!            if (q(0)<qpme) then
+!              q(0)=qpme; qyb(0)=zero    !(partial q0)/ (partial S1) = 0
+!            else
+!              limitET=.true.    !OGX: the q is "negatively" larger than the possible ET rate
+!            end if
+!          else
+!            if (q(0)>qpme) then
+!              q(0)=qpme; qyb(0)=zero
+!            else
+!              !OGX: initial ponding occurs
+!              !OGX: the top boundary is set as hqmin
+!              !OGX: the rest of infiltration will become runoff
+!              initpond= .true.
+!            end if
+!          endif
+!
+!
+!          ! correction 10/2/2010
+!          !maxpond=.false.
+!        else  !OGX: starting index is 0, ponding
+!
+!          qya(0)=SOLMAT(jt(1))%KSAT*qya(0)
+!          pond= .true.
+!
+!          !OGX: include runoff
+!          if (h0>=hqmin) then
+!            qov=snlmm*h0**kappa
+!            qhov=kappa*snlmm*h0**(kappa-1.0)
+!          endif
+!
+!        end if
+
+
         again=.false. ! flag for recalcn of fluxes
         !----- end get fluxes and derivs
         !----- estimate time step dt
@@ -1295,7 +1259,7 @@ contains
             if (initpond) then
               h0=min(hqmin, qpme*dt - dwinfil)
 #ifdef debugMODE
-              write(*,*) "After inital pond, h0 = " , h0
+              write(IFDEBUG,*) "After inital pond, h0 = " , h0
 #endif
 
               if (h0<0.) then
@@ -1341,7 +1305,6 @@ contains
               end if
             end if
             !OGX: frozen soil
-            v%K=v%K*fzn(i)
           end do
           !----- end update unknowns
           if (.not.again) exit
@@ -2597,8 +2560,8 @@ contains
     open(newunit=IFBAL,    file="output.sol.bal")
     open(newunit=IFDEBUG,  file="solflw.info")
 
-    write(IFBAL,"(A5,15A10)") "ihru","Time","GWLevel","Qnet","EpMax","Stor0","Stor1","Runoff", &
-                              "Hpond","SeepTop","Esoil","SeepBot","LatIn","LatOut","Root","BalErr"
+    write(IFBAL,"(A5,16A10)") "ihru","Time","GWLevel","Qnet","EpMax","Stor0","Stor1","Runoff", &
+                              "Hpond","SeepTop","Esoil","SeepBot","LatIn","LatOut","Root","BalErr1","BalErr2"
     !open(newunit=IFMAT,file="output.sol.mat")
     iMAT=0
     !	WRITE(IFMAT,111)
