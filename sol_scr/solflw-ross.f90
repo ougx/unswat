@@ -49,7 +49,7 @@ subroutine TRS(k)
 
   real :: qprec, qevap, QUB(mstep),sic,soc,src
   real     ::  dzgw, Frac_Impervious
-  real, dimension(MAXNODE) :: DZ,FZN,qsum,sicum,socum,srcum
+  real, dimension(MAXNODE) :: DZ,FZN,qsum,sicum,socum,srcum,hh
   integer, dimension(MAXNODE) :: jt
 !%%%%%%%%%%%%%%%%%%%%%%% outgoings
   !real :: RUNOFF(mstep)      !runoff of Impervious cover, mm
@@ -66,6 +66,7 @@ subroutine TRS(k)
   real  :: evap,infil,drn,runoff(mstep)
   !type(SOILMAT), pointer :: mat
   type(SOILCOLUMN), pointer	::	scol
+  logical :: lowgw    !if the groundwater level is lower than the bottom of the soil profile
 !%%%%%%%%%%%%%%%%%%%%%%% outgoings
 
   !if (debuGGing) write(IFPROFILE,*) 'idst: ', DELT,'         Elapse: ', Telapse
@@ -131,8 +132,14 @@ subroutine TRS(k)
   !stop
 #endif
 
-  call searchgw(k,ntot,nun,DZ,dzgw,scol%var,scol%DEPGW,scol%WC)
-
+  call searchgw(k,ntot,nun,DZ,dzgw,hh,scol%DEPGW,scol%WC)
+  if (nun>ntot) then
+    lowgw = .true.
+    nun=ntot
+  else
+    lowgw = .false.
+  endif
+  call SOLCOL_Update_Node(k,nun,ntot,hh)
 
 #ifdef debugMODE
   !call print_var(IFPROFILE,nun,SOLCOL(k)%var,iyr+iida/1000.)
@@ -184,7 +191,7 @@ subroutine TRS(k)
     rain=rain+qprec*(tstep(iSTEP)-tstep(iSTEP-1))
     call solve(k,tstep(iSTEP-1),tstep(iSTEP),qprec,qevap,nun,DZ,jt,scol%hqmin,HMIN,dzgw,scol%HPOND,scol%Kdn,scol%Kup,scol%var, &
                 FZN,scol%POV,FiveThd,evap,runoff(iStep),infil,drn,qsum,sicum,socum,srcum, &
-                scol%dtmin,scol%dtmax,scol%dSmax,scol%dSmaxr,scol%dSfac,scol%dpmaxr)
+                scol%dtmin,scol%dtmax,scol%dSmax,scol%dSmaxr,scol%dSfac,scol%dpmaxr,lowgw)
   enddo
 
   !clear input
@@ -232,7 +239,7 @@ subroutine TRS(k)
   !stop
 #endif
 
-  write (*,*) 'excuting at year:', iyr, '   day:', iida
+  !write (*,*) 'excuting at year:', iyr, '   day:', iida
 end subroutine
 
 

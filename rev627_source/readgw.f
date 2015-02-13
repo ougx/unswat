@@ -129,13 +129,13 @@
 
       !!-------------------OGXinSWAT Begin------------------------------
       !!  store initial groundwater table
-      if (ievent>0) then
-        i=ihru
-        if (gwht(i)<0) then
-          call USTOP('Initial DEPgw is negative')
-        endif
-        SOLCOL(i)%DEPGW0=gwht(i)*1e3+shallst(i)/gw_spyld(i)
-      endif
+!      if (ievent>0) then
+!        i=ihru
+!        if (gwht(i)<0) then
+!          call USTOP('Initial DEPgw is negative')
+!        endif
+!        SOLCOL(i)%DEPGW0=SOLCOL(i)%DEPGW0+shallst(i)/gw_spyld(i)
+!      endif
       !!-------------------------End------------------------------------
 
       return

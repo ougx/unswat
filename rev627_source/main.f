@@ -64,36 +64,36 @@
 !! process input
 
       call getallo
-      print *, "Finish getallo"
+      !print *, "Finish getallo"
       call allocate_parms
-      print *, "Finish allocate_parms"
+      !print *, "Finish allocate_parms"
       call readfile
-      print *, "Finish readfile"
+      !print *, "Finish readfile"
       call readbsn
-      print *, "Finish readbsn"
+      !print *, "Finish readbsn"
       call readwwq
-      print *, "Finish readwwq"
+      !print *, "Finish readwwq"
       if (fcstyr > 0 .and. fcstday > 0) call readfcst
       call readplant             !! read in the landuse/landcover database
-      print *, "Finish readplant"
+      !print *, "Finish readplant"
       call readtill              !! read in the tillage database
-      print *, "Finish readtill"
+      !print *, "Finish readtill"
       call readpest              !! read in the pesticide database
-      print *, "Finish readpest"
+      !print *, "Finish readpest"
       call readfert              !! read in the fertilizer/nutrient database
-      print *, "Finish readfert"
+      !print *, "Finish readfert"
       call readurban             !! read in the urban land types database
-      print *, "Finish readurban"
+      !print *, "Finish readurban"
       call readseptwq            !! read in the septic types database
-      print *, "Finish readseptwq"
+      !print *, "Finish readseptwq"
       call readlup
-      print *, "Finish readlup"
+      !print *, "Finish readlup"
 
       !!-------------------OGXinSWAT Begin------------------------------
       !!  open and read the soil material file
       if (ievent>0) then
         call readsoilmat           !! OGX: read soil materials
-        print *, "Start reading soil materials"
+        !print *, "Start reading soil materials"
       endif
       !!--------------------End--------------------------------
 

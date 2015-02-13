@@ -35,7 +35,11 @@ module ROSSMOD
   real,parameter  ::   CLOSEZERO   =1.0e-5
   real,parameter  ::   gf=1.0
   real,parameter  ::   h0min=-0.02				!min (negative) value for surface pond when it empties.
+  real,parameter  ::   dh0max=0.01  			!min (negative) value for surface pond when it empties.
   real,parameter  ::   Smax=1.001					!max value for layer saturation to allow some overshoot.
+
+
+  real,parameter  ::   MaxLayThinck=1000.0e0					!max value for layer saturation to allow some overshoot.
 
 
 
@@ -241,7 +245,8 @@ module ROSSMOD
   integer ::  mstep           !
   integer ::  IFPROFILE       !file number for soil colume output
   integer ::  IFMAT           !file number for soil horizon output
-  integer ::  IFBAL           !file number for water balance
+  integer ::  IFBAL           !file number for soil water balance
+  integer ::  IFLAY           !file number for soil water layer
   integer ::  IFDEBUG					!file number for debug info
   type(SOILCOLUMN), target, allocatable :: SOLCOL(:)
   type(SOILMAT),    target, allocatable :: SOLMAT(:)
@@ -546,7 +551,42 @@ contains
 
   end subroutine
 
+  subroutine SOLCOL_Update_Node(k,n0,n1,h)
+    !this subroutine sums up the soil water storage for SWAT layer and the entire hru
+    !input: m, n, jt, var
+    !output: wc, totwc
+    integer, intent(in)       ::  k,n0,n1           !ID of column
+    real, intent(in)       ::  h(n1)
+    !    integer       ::  m           !# of unsaturated
+    !    integer       ::  n           !total # of cells
+    !    integer       ::  jt(n)       !soil type
+    !    type(vars)    ::  var(n)      !soil condition
+    !    !real          ::  wc(n)       !(mm/mm) soil moisture,
+    !    real          ::  totwc       !(mm) total water mass of the column, including soil water content and groundwater storage
+    !---------------------------------------------------------------------------------
+    integer       ::  i,j
+    type(SOILCOLUMN), pointer :: scol
+    scol=>SOLCOL(k)
 
+    do i=n0,n1
+      !!update status
+      j=scol%jt(i)
+      if (h(i)>SOLMAT(j)%HBUB) then
+        scol%var(i)%isat=1
+        scol%var(i)%K=SOLMAT(j)%KSAT
+        scol%var(i)%KS=ZERO
+        scol%var(i)%phiS=ZERO
+      else
+        scol%var(i)%isat=0
+      endif
+      scol%var(i)%h=h(i)
+      scol%var(i)%phi=MAT_H2MP(j,h(i))
+      scol%WC(i)=MAT_H2WC(j,h(i))
+
+    enddo
+
+
+  end subroutine
 
   !	function SOLCOL_WATER_MASS(kHRU, nCOM1, nCOM2)
   !		!report mass of the soil column (L)
@@ -590,14 +630,14 @@ contains
   !		SOLCOL_WATER_MASS=WCCOL
   !		return
   !	end function
-  SUBROUTINE solve_steady(nn,dx,jt,htop,hbot,var,qflux,wc)
+  SUBROUTINE solve_steady(nn,dx,jt,htop,hbot,hh,qflux,wc)
 
     IMPLICIT NONE
     !integer, parameter :: nn=10
     INTEGER,INTENT(IN)::nn
     INTEGER,INTENT(IN)::jt(nn)
     REAL,INTENT(IN):: dx(nn),htop,hbot
-    TYPE(vars),INTENT(INOUT)::var(nn)
+    REAL,INTENT(INOUT)::hh(nn)
     REAL,INTENT(INOUT)::qflux,wc(nn)
     !REAL(RK),INTENT(OUT):: S(nn)
 
@@ -645,9 +685,6 @@ contains
     dd(n)=hbot    !top of the saturated zone (top of capilary zone)
     K(n)=MAT_H2K(jt(nn),hbot)
 
-#ifdef debugMODE
-    !write (IFDEBUG,"(6A20)") 'i','Conductivity','H(i)','HTMP(i)','H(i)-HTMP(i)','TolH'
-#endif
 
     do iTER=1,3000
       !store initial values
@@ -694,10 +731,7 @@ contains
         !convergence=all((WCNEW - WCTMP)>TolWC)
         if (abs(H(i)-Htmp(i))>TolH)  then
           convergence=.false.
-#ifdef debugMODE
-          !write (IFDEBUG,"(I20,6G20.11)") i,K(i),H(i),Htmp(i),abs(H(i)-Htmp(i)),TolH,dz(i)
-#endif
-          !if (debuGGing)
+
         endif
 
       enddo
@@ -718,30 +752,7 @@ contains
     endif
     !output
     qflux=khalf1*((H(nn-1)-H(nn))/dz(nn-1)+1)
-
-#ifdef debugMODE
-    write (IFDEBUG,"(3a5,6A15)") 'i',"isat",'mat','DX(i)','K(i)','H(i)','phi(i)',"WC","S"
-#endif
-    do i=1,nn
-      !!update status
-      if (H(i)>SOLMAT(jt(i))%HBUB) then
-        var(i)%isat=1
-        var(i)%K=SOLMAT(jt(i))%KSAT
-        var(i)%KS=ZERO
-        var(i)%phiS=ZERO
-      else
-        var(i)%isat=0
-      endif
-      var(i)%h=H(i)
-      var(i)%phi=MAT_H2MP(jt(i),H(i))
-      wc(i)=MAT_H2WC(jt(i),H(i))
-
-#ifdef debugMODE
-      write (IFDEBUG,"(3I5,7E15.7)") i,var(i)%isat,jt(i),dx(i),K(i),H(i),var(i)%phi,wc(i), &
-        MAT_H2S(jt(i),H(i)),MAT_MP2H(jt(i),var(i)%phi)
-#endif
-
-    enddo
+    hh=H(1:nn)
 
 #ifdef debugMODE
     write (IFDEBUG,*) "qflux is ", qflux
@@ -754,7 +765,7 @@ contains
 
 
   SUBROUTINE solve(k,ts,tfin,qprec,qevap,n,dx,jt,hqmin,hETmin,hbot,h0,Kd,Ku,var,fzn,snl,kappa,evap,runoff,infil,drn, &
-      qsum,sicum,socum,srcum,dtmin,dtmax,dSmax,dSmaxr,dSfac,dpmaxr)
+      qsum,sicum,socum,srcum,dtmin,dtmax,dSmax,dSmaxr,dSfac,dpmaxr,lowgw)
     IMPLICIT NONE
     INTEGER,INTENT(IN)::k,n,jt(n)
     REAL,INTENT(IN):: ts,tfin,qprec,qevap,hbot
@@ -767,6 +778,7 @@ contains
     REAL,DIMENSION(n), INTENT(INOUT)::sicum,socum,srcum
     REAL, intent(in)::snl   !OGX: slope/ n/ L_s; Manning's equation to calculate the overland flow
     REAL, intent(in)::kappa   !OGX: used with Manning's equation to calculate the overland flow
+    logical, intent(in):: lowgw
 
     ! Solves the RE
     ! Definitions of arguments:
@@ -856,10 +868,12 @@ contains
 
     !----- set up for boundary conditions
     getq0=.true.
-    getqn=.true.
     j=jt(n); p=>SOLMAT(j)
     !hbot=ZERO
-    vbot=vars(1,hbot,(hbot-p%HBUB)*p%KSAT+p%phie,zero,p%KSAT,zero)
+    !if (.not. lowgw) then
+      getqn=.true.
+      vbot=vars(1,hbot,(hbot-p%HBUB)*p%KSAT+p%phie,zero,p%KSAT,zero)
+    !endif
     !----- end set up for boundary conditions
     !----- initialise
 
@@ -958,6 +972,7 @@ contains
         !            vtop=v0et
         !          else
 
+!--------------------------------------------------------------------------------
         if (var(1)%phi<=phip.and.h0<=zero.and.nsat<n) then ! no ponding
           ns=1 ! start index for eqns
           vtop=vars(0,hETmin,phimin1,zero,Kmin1,zero) ! vars at soil surface
@@ -965,6 +980,7 @@ contains
           ns=0
           vtop=vars(1,h0,(h0-p%HBUB)*p%KSAT+p%phie,zero,p%KSAT,zero)
         end if
+!--------------------------------------------------------------------------------
 
 !--------------------------------------------------------------------------------
 !        if (h0>zero) then
@@ -977,7 +993,7 @@ contains
 !            !            h, phi,                 phiS,K,   KS
 !            vtop=vars(1,h0,(h0-p%HBUB)*p%KSAT+p%phie,zero,p%KSAT,ZERO)
 !          endif
-
+!
 !        elseif (qpme>ZERO) then
 !          ns=1
 !          if (Kd>ZERO) then
@@ -990,24 +1006,20 @@ contains
 !        else
 !          !et flux boundary
 !          ns=1 ! start index for eqns
-!          if (Ku>ZERO) then     !OGX: hETmin will be threthold for restrited ET
-!            !            h,  phi,    phiS,K,    KS
-!            vtop=vars(0,hETmin,phimin1,zero,Ku,ZERO) ! vars at soil surface
-!          else
-!            !            h,  phi,    phiS,K,    KS
-!            vtop=vars(0,hETmin,phimin1,zero,Kmin1,ZERO) ! vars at soil surface
-!          endif
+!          vtop=vars(0,hETmin,phimin1,zero,Kmin1,ZERO) ! vars at soil surface
 !        endif
 !--------------------------------------------------------------------------------
 
 
 
         call getfluxes(n,jt,dx,dz,vtop,vbot,var,hint,phimin,q,qya,qyb, &
-          iflux,init,getq0,getqn,dpmaxr)
+          iflux,init,getq0,getqn,dpmaxr,hqmin)
         ! adjust for top and bottom bdry condns
         !qprec1=qprec(it) ! may change qprec1 to maintain pond if required
         qov=zero
         qhov=zero
+
+!--------------------------------------------------------------------------------
         if (ns==1) then
           if (q(0)<qpme) then
             q(0)=qpme; qyb(0)=zero
@@ -1022,32 +1034,28 @@ contains
             qhov=kappa*snlmm*h0**(kappa-1.0)
           end if
         end if
+!--------------------------------------------------------------------------------
 
 !--------------------------------------------------------------------------------
 !        if (ns==1) then   !OGX: starting index is 1
-!          if (qpme<zero) then
-!            if (q(0)<qpme) then
-!              q(0)=qpme; qyb(0)=zero    !(partial q0)/ (partial S1) = 0
-!            else
-!              limitET=.true.    !OGX: the q is "negatively" larger than the possible ET rate
-!            end if
+!          if (abs(q(0))>abs(qpme)) then
+!            q(0)=qpme; qyb(0)=zero
 !          else
-!            if (q(0)>qpme) then
-!              q(0)=qpme; qyb(0)=zero
+!            if (qpme<zero) then
+!              limitET=.true.    !OGX: the q is "negatively" larger than the possible ET rate
 !            else
 !              !OGX: initial ponding occurs
 !              !OGX: the top boundary is set as hqmin
 !              !OGX: the rest of infiltration will become runoff
 !              initpond= .true.
-!            end if
+!            endif
 !          endif
-!
 !
 !          ! correction 10/2/2010
 !          !maxpond=.false.
 !        else  !OGX: starting index is 0, ponding
 !
-!          qya(0)=SOLMAT(jt(1))%KSAT*qya(0)
+!          qya(0)=p%KSAT*qya(0)
 !          pond= .true.
 !
 !          !OGX: include runoff
@@ -1057,7 +1065,18 @@ contains
 !          endif
 !
 !        end if
-
+!--------------------------------------------------------------------------------
+        !groundwater drop lower than the profile bottom, freee drainage is used (unit hydraulic gradient)
+!        if (lowgw) then
+!
+!          v=>var(n)
+!          q(n)=gf*v%K
+!          if (v%isat==0) then
+!            qya(n)=gf*v%KS
+!          else
+!            qya(n)=zero
+!          end if
+!        endif
 
         again=.false. ! flag for recalcn of fluxes
         !----- end get fluxes and derivs
@@ -1097,10 +1116,12 @@ contains
 #ifdef debugMODE
 !            write (IFDEBUG,*) "dt=dSmax/dmax",dSmax,dmax,dt,t
 #endif
-            ! if pond going adjust dt
-            if (h0>zero.and.(qov+q(0)-qpme)>h0/dt) then
-              dt=(h0-half*h0min)/(qov+q(0)-qpme) !OGX: include overland flow qov
-              pondmove=.true.
+
+            if (ns<1) then
+              if ((qov+q(0)-qpme)>h0/dt) then ! if pond going adjust dt
+                dt=(h0-half*h0min)/(qov+q(0)-qpme) !OGX: include overland flow qov
+                pondmove=.true.
+              endif
             endif
           else ! steady state flow  !OGX:|dS/dt| == zero / Or the column is fully saturated
             if (qpme>=q(n)+qov) then   ! pond is accumulated
@@ -1204,11 +1225,18 @@ contains
               !                ! start of runoff
               !                fac=(h0max+half*dh0max-h0)/dy(0); iok=0
               !              end if
+              if (iok==1.and.ns<1.and.h0<hqmin.and.h0+dy(0)>hqmin+dh0max) then
+
+                fac=(hqmin+half*dh0max-h0)/dy(0); iok=0
+              end if
+
               if (iok==1.and.ns<1) then
-                if (h0>hqmin .and. h0+dy(0)<(hqmin+h0min)) then    !h0min is overshooting
+                if (h0<hqmin.and.h0+dy(0)>hqmin+dh0max) then            ! start of runoff
+                  fac=(hqmin+half*dh0max-h0)/dy(0); iok=0
+                elseif (h0>hqmin .and. h0+dy(0)<(hqmin-dh0max)) then    ! runoff start going
                   ! runoff going
-                  fac=-(h0-(hqmin+half*h0min))/dy(0); iok=0
-                elseif (h0>zero .and. h0+dy(0)<h0min) then
+                  fac=-(h0-(hqmin-half*dh0max))/dy(0); iok=0
+                elseif (h0>zero .and. h0+dy(0)<h0min) then              ! pond start going
                   ! pond going
                   fac=-(h0-half*h0min)/dy(0); iok=0
                 end if
@@ -1257,15 +1285,14 @@ contains
 
             !for initial ponding, runoff is the residual
             if (initpond) then
-              h0=min(hqmin, qpme*dt - dwinfil)
+              h0=qpme*dt - dwinfil
 #ifdef debugMODE
               write(IFDEBUG,*) "After inital pond, h0 = " , h0
 #endif
 
               if (h0<0.) then
-                call USTOP("negative ho after initial pond")
+                call USTOP("negative h0 after initial pond")
               endif
-              runoff = runoff + qpme*dt - dwinfil - h0
             endif
 
 
@@ -1357,11 +1384,11 @@ contains
 
 
     SUBROUTINE getfluxes(n,jt,dx,dz,vtop,vbot,var,hint,phimin,q,qya,qyb, &
-        iflux,init,getq0,getqn,dpmaxr)
+        iflux,init,getq0,getqn,dpmaxr,dx0)
       IMPLICIT NONE
       LOGICAL,INTENT(IN)::init,getq0,getqn
       INTEGER,INTENT(IN)::n,jt(n),iflux
-      REAL,INTENT(IN)::dx(n),dz(n-1),dpmaxr
+      REAL,INTENT(IN)::dx(n),dz(n-1),dpmaxr,dx0
       TYPE(vars),INTENT(IN)::vtop,vbot
       TYPE(vars),TARGET,INTENT(IN)::var(n)
       REAL,INTENT(INOUT)::hint(n),phimin(n)
@@ -1400,7 +1427,7 @@ contains
       v=>var(1)
       if (iflux==1.or.v%isat/=0) then ! get top flux if required
         if (getq0) then
-          call flux(jt(1),vtop,v,half*dx(1),q(0),qya(0),qyb(0))
+          call flux(jt(1),vtop,v,half*dx(1)+dx0,q(0),qya(0),qyb(0))
         end if
       end if
       ! get other fluxes
@@ -1611,7 +1638,6 @@ contains
       integer :: iLAY, i, iSTEP, j, iTMP0, iTMP1, nNOD, nNODm1
       real ::  r0,r1,dep
       real ::  WC, AWC, WCFC, WCSAT, SSURF, LSOIL, EPMAX, DEPRT, WUP, WDN, CON
-      real ::  W(n)
       type(SOILMAT), pointer :: mat
 
 
@@ -1707,7 +1733,7 @@ contains
     end subroutine setsaturation
 
 
-    subroutine searchgw(k,n,nu,dz,dzgw,var,depgw,wc)
+    subroutine searchgw(k,n,nu,dz,dzgw,h,depgw,wc)
       !search the lowest unsaturated node
       !set the saturated water content below groundwater table
       use parm, only: shallst, gw_spyld
@@ -1718,12 +1744,11 @@ contains
       real, intent(out)	::	dzgw,wc(n)
       real, intent(inout)	::	depgw
       integer, intent(inout)	::	nu
-      type(vars), intent(inout)	::	var(n)
+      real, intent(inout)	::	h(n)
 
 
-      real		::	dep,h
+      real		::	dep
       integer	::	i
-      type(SOILMAT), pointer	:: mat
 
       !var%isat=0
       depgw=SOLCOL(k)%DEPGW0-shallst(k)/gw_spyld(k)
@@ -1742,6 +1767,8 @@ contains
 
 
 
+
+
       !
 
 
@@ -1749,19 +1776,15 @@ contains
       do i=nu+1,n
         !fully saturated zone
         dep=dep+dz(i)
-        mat=>SOLMAT(SOLCOL(k)%jt(i))
-        h=dep-depgw-0.5*dz(i)	!hydraulic head at the center of a cell
-        var(i)%isat=1
-        var(i)%h=h
-        var(i)%phi=(h-mat%HBUB)*mat%KSAT+mat%phie
-        wc(i)=mat%WCS
+        h(i)=dep-depgw-0.5*dz(i)	!hydraulic head at the center of a cell
       enddo
 
       if (nu>n) then
         !groundwater table is below the bottom of the soil column, exit the program
         write(IFPROFILE,*) 'Groundwater table is below the bottom of Soil Column or Fully Saturated Soil', k
+        dzgw=dep-depgw
         !write(*,*) 'Groundwater table is below the bottom of Soil Column or Fully Saturated Soil', k
-        call USTOP('Groundwater table is below the bottom of the soil column or Fully Saturated Soil, exit the program')
+        !call USTOP('Groundwater table is below the bottom of the soil column or Fully Saturated Soil, exit the program')
         !nu=n
       endif
     end subroutine searchgw
@@ -1775,7 +1798,7 @@ contains
       integer, intent(out)::	NZ,ILBNOD(0:MAXLAY),jt(MAXNODE)
 
 
-      integer	:: l
+      integer	:: l,lmax
       real :: dep0,dep1,thick,middle,r0,dzf
 
       ILBNOD(0)=0
@@ -1794,7 +1817,7 @@ contains
       dzf=THICK1
 
 
-
+      NZ=0
 
       do l=1, NL
 
@@ -1804,7 +1827,6 @@ contains
           if (THICK1>ZBOT(1)) then
             call USTOP("The first layer starting thickness is larger than the layer thickness")
           endif
-          NZ=0
           dep0=0.0
           thick=THICK1
         else
@@ -1818,7 +1840,19 @@ contains
           r0=1.0
         endif
 
+
+
         do
+          if (thick>MaxLayThinck) then
+            !avoid a layer thinckness over maximum thickness
+            lmax=floor((ZBOT(l)-ZBOT(l-1)-(dep0-ZBOT(l-1))*2)/MaxLayThinck)
+            DZ(NZ+1:NZ+lmax) = MaxLayThinck
+            jt(NZ+1:NZ+lmax) = JTL(l)
+            thick=DZ(NZ)
+            NZ=NZ+lmax
+            dep0=dep0+MaxLayThinck*lmax
+          endif
+
           NZ=NZ+1
           jt(NZ)=JTL(l)
           dep1=dep0+thick
@@ -1855,6 +1889,8 @@ contains
             if (IDIV==4) thick=thick/ DifRto
             if (IDIV==5) thick=(thick*r0)**(1./DifRto)/r0
           endif
+          if (thick<THICK1 .and. l==1) thick=THICK1
+          if (thick<THICK2 .and. l>1) thick=THICK2
         enddo !node within a soil or aquifer layer
 
         ILBNOD(l)=NZ
@@ -2164,7 +2200,7 @@ contains
     integer, dimension(0:MAXLAY) ::  ILBNOD
     integer, dimension(MAXLAY)		::  jt_lay
     real, dimension(0:MAXNODE) :: ZNOD
-    real, dimension(MAXNODE) 	:: DZ,WC
+    real, dimension(MAXNODE) 	:: DZ,WC,HEAD
     integer, dimension(MAXNODE) 	:: jt
     type(SOILCOLUMN), pointer	::	scol
     type(SOILMAT), pointer	::	smat
@@ -2257,13 +2293,23 @@ contains
     call URWORD(sLine,iLoc,iStart,iStop,3,iTmp,scol%dpmaxr,slogfile,IFIN)   !dpmaxr
 
 
-    !ZTOP	WCINI1	IWCINI	IDIV	[THICKMIN1]	[THICKMIN2]	[DIFRTO]
     call URDCOM(IFIN,slogfile,sLine)
     iLoc=1
     call URWORD(sLine,iLoc,iStart,iStop,3,iTmp,scol%ZTOP,slogfile,IFIN)  !ZTOP
     STRFMT="('THE TOP ELEVATON OF HRU IS ', 1PG15.7)"
     write (slogfile, STRFMT) scol%ZTOP
 
+    call URDCOM(IFIN,slogfile,sLine)
+    iLoc=1
+    call URWORD(sLine,iLoc,iStart,iStop,3,iTmp,r1,slogfile,IFIN)  !ZGW
+    STRFMT="('THE INITIAL GROUNDWATER LEVEL OF HRU IS ', 1PG15.7)"
+    write (slogfile, STRFMT) r1
+    if (r1>scol%ZTOP) then
+      write (slogfile, *) "******** Initial groundwater level is higher than the top elevation."
+      r1=scol%ZTOP
+    endif
+    !shallst and gw_spyld were read in readgw
+    SOLCOL(i)%DEPGW0=(scol%ZTOP-r1)*1000.0+shallst(i)/gw_spyld(i)
 
     call URDCOM(IFIN,slogfile,sLine)
     iLoc=1
@@ -2396,13 +2442,19 @@ contains
 
 
     !search the lowest unsaturated node
-    call searchgw(k,NNOD,NUNS,DZ(1:NNOD),dzgw,scol%var,scol%DEPGW,scol%WC)
+    HEAD=ZERO
+    call searchgw(k,NNOD,NUNS,DZ(1:NNOD),dzgw,HEAD,scol%DEPGW,scol%WC)
     !steady-state simulation
     !DZ(NUNS)=DZ(NUNS)-dzgw
 
-    call solve_steady(NUNS,DZ,jt,HINI,dzgw,scol%var,qsteady,scol%WC)
+    call solve_steady(NUNS,DZ,jt,HINI,dzgw,HEAD,qsteady,scol%WC)
     !DZ(NUNS)=DZ(NUNS)+dzgw
+    call SOLCOL_Update_Node(k,1,NNOD,HEAD)
 
+#ifdef debugMODE
+    write (IFDEBUG,"(3a5,2A15)") 'i',"isat",'mat','DX(i)','H(i)'
+    write (IFDEBUG,"(3I5,2E15.7)") (ii,scol%var(ii)%isat,jt(ii),DZ(ii),HEAD(ii),ii=1,NNOD)
+#endif
     !update water content
     !call setsaturation(DZ(NUNS),dzgw,scol%var(NUNS),jt(NUNS),scol%WC(NUNS))
 
@@ -2478,11 +2530,67 @@ contains
 
     scol%QOV=0.
 
-    !scol%iter_tot=0
-
-
-
   end subroutine
+
+  subroutine readsoilmat_in_usf(FIN)
+    use ROSSMOD
+
+    implicit none
+    integer			::	sfile
+    integer			::	i, iis,iie,icol
+    integer			::	k
+    real				::	r
+    integer   	::	iwp				!wilting point, 0 input by user, 1 calculate at -15 bar
+    integer   	::	iawc			!available water content, 0 input by user, 1 calculate at -15 bar
+    character(len=400) :: sline
+    type(SOILMAT), pointer	::	p
+
+    sfile = FIN
+    open(newunit=slogfile,file='soil.log')
+
+    read(sfile,'(A)')	sline
+    icol=1
+    call URWORD(sline,icol,iis,iie,2,nmat,r,slogfile,sfile)
+    call URWORD(sline,icol,iis,iie,2,iwp,r,slogfile,sfile)
+    call URWORD(sline,icol,iis,iie,2,iawc,r,slogfile,sfile)
+
+    allocate (SOLMAT(nmat))
+
+    do i=1, nmat
+      p=>SOLMAT(i)
+      read(sfile,'(A)')	sline
+      icol=1
+      call URWORD(sline,icol,iis,iie,3,k,p%KSAT,slogfile,sfile)
+      call URWORD(sline,icol,iis,iie,3,k,p%WCR,slogfile,sfile)
+      call URWORD(sline,icol,iis,iie,3,k,p%WCS,slogfile,sfile)
+      call URWORD(sline,icol,iis,iie,3,k,p%LAM,slogfile,sfile)
+      call URWORD(sline,icol,iis,iie,3,k,p%ETA,slogfile,sfile)
+      call URWORD(sline,icol,iis,iie,3,k,p%HBUB,slogfile,sfile)
+
+      p%WCSR=p%WCS-p%WCR
+      p%PHIE=p%KSAT*p%HBUB/(one-p%lam*p%eta) ! MFP at HBUB
+      p%KSE=p%ETA*p%KSAT ! dK/dS at HBUB
+      p%PHISE=(p%ETA-ONE/p%LAM)*p%PHIE ! dphi/dS at HBUB
+
+      if (iwp==1) then
+        call URWORD(sline,icol,iis,iie,2,k,p%WCWP,slogfile,sfile)
+      else
+        p%WCWP=MAT_H2WC(i,H1500kPa)
+      endif
+      if (iawc==1) then
+        call URWORD(sline,icol,iis,iie,2,k,p%WCAWC,slogfile,sfile)
+        p%WCFC=p%WCAWC+p%WCWP
+        if (p%WCFC<0.0) then
+          call USTOP('Wrong AWC in input file of soil material')
+        endif
+      else
+        p%WCFC=MAT_H2WC(i,H33kPa)
+        p%WCAWC=p%WCFC-p%WCWP
+      endif
+
+    enddo
+    close(sfile)
+  end subroutine readsoilmat
 
   subroutine readsoilmat
     use ROSSMOD
@@ -2555,13 +2663,14 @@ contains
 #endif
 
     allocate(SOLCOL(mhru))
-    !allocate(SOLMAT(NMAT))
+    allocate(SOLMAT(mhru*10))   !assuming the maximum number of layers of each HRU is 10
     open(newunit=IFPROFILE,file="output.sol.col")
     open(newunit=IFBAL,    file="output.sol.bal")
+    open(newunit=IFLAY,    file="output.sol.lay")
     open(newunit=IFDEBUG,  file="solflw.info")
 
     write(IFBAL,"(A5,16A10)") "ihru","Time","GWLevel","Qnet","EpMax","Stor0","Stor1","Runoff", &
-                              "Hpond","SeepTop","Esoil","SeepBot","LatIn","LatOut","Root","BalErr1","BalErr2"
+                              "Hpond","Infil","Esoil","SeepBot","LatIn","LatOut","Root","BalErr1","BalErr2"
     !open(newunit=IFMAT,file="output.sol.mat")
     iMAT=0
     !	WRITE(IFMAT,111)
