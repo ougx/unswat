@@ -116,6 +116,7 @@ module ROSSMOD
 
   type SOILCOLUMN
     integer(1)          ::  Lay1_split 		!whether the first layer is splite because 10 mm limit: 1: yse, 0: no split
+    integer             ::  IPRINT 		    !print the soil profile or not: 1: yse, 0: no
     integer             ::  ISUB		  		!index of subbasin
     integer             ::  IHRU      		!index of hru within subbasin
     integer             ::  LAYAQ    			!number of aquifer layers
@@ -180,6 +181,8 @@ module ROSSMOD
     !integer             ::  ILCNOD(:) !index of the node representating the layer (center of the layer)
     integer,allocatable ::  ILBNOD(:) 		!index of the ending node representating the layer (bottom of the layer)
     integer,allocatable	::	jt(:)					!index of soil type
+    integer,allocatable	::	OBLay(:)					!observation layer
+    real   ,allocatable	::	OBDep(:)					!observation layer
     !integer(1)          ::  we
     integer(1)          ::  IHATM 	  		!how to define soil evaporation limit
     !
@@ -240,6 +243,7 @@ module ROSSMOD
   save
   integer	::	nmat	!# of soil materials
   integer	::	nless
+  integer ::  nsob  !# of observation points
   integer	::	slogfile	!file number for message logs
   real, allocatable :: tstep(:)          !time step point of SWAT, in hr: e.g. 0,1,2,3,4....24
   integer ::  mstep           !
@@ -669,6 +673,9 @@ contains
     do i=nn,2,-1
       H(i)=H(i+1)+dz(i)*r1
     enddo
+    !no steady-state solver
+    return
+
 
     !top boundary
     aa(1)=zero
@@ -740,22 +747,24 @@ contains
     enddo   !iteration loop: iTER
 
     if (.not. convergence) then
-      write (*,*) 'solve_steady: Reach the maximum iteration number, steady state solution not archived'
-      write (*,*) 'solve_steady: The initial value will be set as the average of the last two iteration.'
-      write (IFDEBUG,*) 'solve_steady: Reach the maximum iteration number, steady state solution not archived'
-      write (IFDEBUG,*) 'solve_steady: The initial value will be set as the average of the last two iteration.'
-      write (IFDEBUG,"(6A20)") 'i','DX(i)','K(i)','H(i)','TEMP_H(i)',"Diff"
-      do i=1,nn
-        write (IFDEBUG,"(I20,5G20.11)") i,dx(i),K(i),H(i),Htmp(i),abs(Htmp(i)-H(i))
-      enddo
+#ifdef debugMODE
+      !write (*,*) 'solve_steady: Reach the maximum iteration number, steady state solution not archived'
+      !write (*,*) 'solve_steady: The initial value will be set as the average of the last two iteration.'
+      !write (IFDEBUG,*) 'solve_steady: Reach the maximum iteration number, steady state solution not archived'
+      !write (IFDEBUG,*) 'solve_steady: The initial value will be set as the average of the last two iteration.'
+      !write (IFDEBUG,"(6A20)") 'i','DX(i)','K(i)','H(i)','TEMP_H(i)',"Diff"
+      !do i=1,nn
+      !  write (IFDEBUG,"(I20,5G20.11)") i,dx(i),K(i),H(i),Htmp(i),abs(Htmp(i)-H(i))
+      !enddo
+#endif
       H=0.5*(H+Htmp)
     endif
     !output
-    qflux=khalf1*((H(nn-1)-H(nn))/dz(nn-1)+1)
-    hh=H(1:nn)
+    !qflux=khalf1*((H(nn-1)-H(nn))/dz(nn-1)+1)
+    hh(1:nn)=H(1:nn)
 
 #ifdef debugMODE
-    write (IFDEBUG,*) "qflux is ", qflux
+    !write (IFDEBUG,*) "qflux is ", qflux
     !write (IFDEBUG,*) "khalf2, H(nn-1), H(nn), dz(nn-1),hbot", khalf1, H(nn-1), H(nn), dz(nn-1),hbot
     !write (IFDEBUG,*) "K*(Hn-Hbot)*2.0/dz(i)-K ", khalf2*((H(nn)-hbot)/dz(nn)+1)
 #endif
@@ -856,7 +865,13 @@ contains
     !TYPE(vars)::v0et  !OGX
     logical :: limitET, SatEx
     REAL,DIMENSION(n)::sli,slo,srt,qex
-
+#ifdef debugMODE
+    integer :: dtline(20)
+    real :: dt0(0:20), facc(20)
+    dtline = 0
+    dt0 = 0.
+    facc=0
+#endif
     snlmm=snl
     j=jt(1); p=>SOLMAT(j)
     phip=max(p%phie-p%HBUB*p%KSAT,1.00001*p%phie) ! phi at h=0
@@ -1108,28 +1123,39 @@ contains
 !            write (IFDEBUG,"(A5,E15.7)")  "Q0",q(0)
 !            write (IFDEBUG,"(I5,5E15.7)") &
 !              (var(i)%isat,q(i),qex(i),q(i)-q(i-1)+qex(i),thf(i),abs(q(i)-q(i-1)+qex(i))/(SOLMAT(jt(i))%WCSR*dx(i)), i=1, n)
-!            !write(*,*) "dmax == 0"
 !          endif
 #endif
           if (dmax>zero) then
             dt=dSmax/dmax
-#ifdef debugMODE
 !            write (IFDEBUG,*) "dt=dSmax/dmax",dSmax,dmax,dt,t
+#ifdef debugMODE
+                dt0(0) = dt
 #endif
-
             if (ns<1) then
               if ((qov+q(0)-qpme)>h0/dt) then ! if pond going adjust dt
                 dt=(h0-half*h0min)/(qov+q(0)-qpme) !OGX: include overland flow qov
                 pondmove=.true.
+#ifdef debugMODE
+                dtline(1) = 1137
+                dt0(1) = dt
+#endif
               endif
             endif
           else ! steady state flow  !OGX:|dS/dt| == zero / Or the column is fully saturated
             if (qpme>=q(n)+qov) then   ! pond is accumulated
               ! step to finish
               dt=tfin-t
+#ifdef debugMODE
+                dtline(2) = 1147
+                dt0(2) = dt
+#endif
             else
               dt=-(h0-half*h0min)/(qpme-q(n)-qov) ! pond going so adjust dt
               pondmove=.true.
+#ifdef debugMODE
+                dtline(3) = 1154
+                dt0(3) = dt
+#endif
             end if
           end if
 
@@ -1139,18 +1165,28 @@ contains
           if (msteps==msteps0.and.nsat>0.and.iflux==1) then
             again=.true.
             dt=1.0e-20*(tfin-ts)
+#ifdef debugMODE
+                dtline(4) = 1167
+                dt0(4) = dt
+#endif
           end if
           if (nsat==n.and.nsatlast<n.and.iflux==1) then
             ! profile has just become saturated so adjust phi values
             again=.true.
             dt=1.0e-20*(tfin-ts)
+#ifdef debugMODE
+                dtline(5) = 1176
+                dt0(5) = dt
+#endif
           end if
-
-
           !if (dt<=dtmin) then dt=dtmin
           if (t+1.1*dt+dtmin>=tfin) then ! step to finish     !OGX: check if need to move next step
             dt=tfin-t
             t=tfin
+#ifdef debugMODE
+                dtline(6) = 1187
+                dt0(6) = dt
+#endif
           else
             t=t+dt ! tentative update
           end if
@@ -1172,10 +1208,12 @@ contains
             itmp=itmp+1
             accel=one-0.05*min(10,max(0,itmp-4)) ! acceleration
             if (itmp>40) then
-              write (*,*) "solve: too many iterations of equation solution"
-              write (*,*) "accel",accel
-              write (*,*) "itmp",itmp
-              stop
+#ifdef debugMODE
+              write (IFDEBUG,*) "solve: too many iterations of equation solution"
+              write (IFDEBUG,*) "accel",accel
+              write (IFDEBUG,*) "itmp",itmp
+#endif
+              call USTOP(' Solve: too many iterations of equation solution.')
             end if
             if (ns<1) then
               bb(0)=-(qya(0)+rsigdt+qhov)     !OGX: include overland flow qhov: derivative of q_ov WRT h_0
@@ -1208,16 +1246,32 @@ contains
               do i=1,n
                 if (var(i)%isat==0) then ! check change in S
                   if (abs(dy(i))>dSfac*dSmax) then
-                    fac=max(half,accel*abs(dSmax/dy(i))); iok=0; exit
+                    fac=max(half,accel*abs(dSmax/dy(i))); iok=0
+#ifdef debugMODE
+                  facc(1) = fac
+#endif
+                    exit
                   end if
                   if (-dy(i)>dSmaxr*S(i)) then
-                    fac=max(half,accel*dSmaxr*S(i)/(-dSfac*dy(i))); iok=0; exit
+                    fac=max(half,accel*dSmaxr*S(i)/(-dSfac*dy(i))); iok=0
+#ifdef debugMODE
+                  facc(2) = fac
+#endif
+                    exit
                   end if
                   if (S(i)<one.and.S(i)+dy(i)>Smax) then
-                    fac=accel*(half*(one+Smax)-S(i))/dy(i); iok=0; exit
+                    fac=accel*(half*(one+Smax)-S(i))/dy(i); iok=0
+#ifdef debugMODE
+                  facc(3) = fac
+#endif
+                    exit
                   end if
                   if (S(i)>=one.and.dy(i)>half*(Smax-one)) then
-                    fac=0.25*(Smax-one)/dy(i); iok=0; exit
+                    fac=0.25*(Smax-one)/dy(i); iok=0
+#ifdef debugMODE
+                  facc(4) = fac
+#endif
+                    exit
                   end if
                 end if
               end do
@@ -1228,22 +1282,42 @@ contains
               if (iok==1.and.ns<1.and.h0<hqmin.and.h0+dy(0)>hqmin+dh0max) then
 
                 fac=(hqmin+half*dh0max-h0)/dy(0); iok=0
+#ifdef debugMODE
+                  facc(5) = fac
+#endif
+
               end if
 
               if (iok==1.and.ns<1) then
                 if (h0<hqmin.and.h0+dy(0)>hqmin+dh0max) then            ! start of runoff
                   fac=(hqmin+half*dh0max-h0)/dy(0); iok=0
+#ifdef debugMODE
+                  facc(6) = fac
+#endif
+
                 elseif (h0>hqmin .and. h0+dy(0)<(hqmin-dh0max)) then    ! runoff start going
                   ! runoff going
                   fac=-(h0-(hqmin-half*dh0max))/dy(0); iok=0
+#ifdef debugMODE
+                  facc(7) = fac
+#endif
+
                 elseif (h0>zero .and. h0+dy(0)<h0min) then              ! pond start going
                   ! pond going
                   fac=-(h0-half*h0min)/dy(0); iok=0
+#ifdef debugMODE
+                  facc(8) = fac
+#endif
+
                 end if
               end if
               if (iok==0) then ! reduce time step
                 t=t-dt; dt=fac*dt; t=t+dt; rsigdt=1./(sig*dt)
                 !nless=nless+1 ! count step size reductions
+#ifdef debugMODE
+                dtline(7) = 1316
+                dt0(7) = dt
+#endif
               end if
               v=>var(1)
               if (v%isat/=0.and.iflux==1 .and. v%phi<phip.and. &
@@ -1251,6 +1325,10 @@ contains
                 ! incipient ponding - adjust state of saturated regions
                 t=t-dt; dt=1.0e-20*(tfin-ts); rsigdt=1./(sig*dt)
                 again=.true.; iok=0
+#ifdef debugMODE
+                dtline(8) = 1327
+                dt0(8) = dt
+#endif
               end if
             end if
           end do
@@ -1273,7 +1351,7 @@ contains
             else
               dwinfil=(q(0)+sig*qyb(0)*dy(1))*dt
 #ifdef debugMODE
-            write(IFDEBUG,*)  "q(n)dt",q(n)*dt,drn,MAT_MP2H(jt(n),var(n)%phi),var(n)%isat
+            !write(IFDEBUG,*)  "q(n)dt",q(n)*dt,drn,MAT_MP2H(jt(n),var(n)%phi),var(n)%isat
 #endif
             end if
 
@@ -1287,7 +1365,7 @@ contains
             if (initpond) then
               h0=qpme*dt - dwinfil
 #ifdef debugMODE
-              write(IFDEBUG,*) "After inital pond, h0 = " , h0
+              !write(IFDEBUG,*) "After inital pond, h0 = " , h0
 #endif
 
               if (h0<0.) then
@@ -1337,13 +1415,18 @@ contains
           if (.not.again) exit
         end do
         if (dt<dtmin .and. .not. pondmove .and. itmp>10) then
-           write (*,*) "solve: time step = ",dt," is smaller than user defined"
-          write (*,*) "t, dt, ts(it)  ", t, dt
-          write (*,*) "fac=  ",fac
-          write (IFBAL,*) "solve: time step = ",dt," is smaller than user defined"
-          write (IFBAL, *) "The 24h precipitation rate is"
-          write (IFBAL, *) qprec
-          stop
+#ifdef debugMODE
+          write(IFDEBUG,*) "At HRU = ", k
+          write(IFDEBUG,*) "solve: time step = ",dt," is smaller than user defined"
+          write(IFDEBUG,*) "t, dt, ts, tfin", t, dt, ts, tfin
+          write(IFDEBUG,*)  "dt0 = ", dSmax/dmax
+          write(IFDEBUG,"(A,8I10)")   "lines           ", dtline(1:8)
+          write(IFDEBUG,"(A,8G10.2)") "fac             ", facc(1:8)
+          write(IFDEBUG,"(A,9G10.2)") "dt    ", dt0(0:8)
+          write(IFDEBUG,*) "The 24h precipitation rate is", qprec
+          call print_var(IFPROFILE,k,n,var,t,hbot,S,dx)
+#endif
+          call USTOP(' dt is smaller than user defined')
         end if
         !----- end take ne`````````````````````````````````````````````````````````````````````````````````````xt time step
         ! remove negative h0 (optional)
@@ -1747,24 +1830,30 @@ contains
       real, intent(inout)	::	h(n)
 
 
-      real		::	dep
+      real		::	dep, dep0
       integer	::	i
 
       !var%isat=0
       depgw=SOLCOL(k)%DEPGW0-shallst(k)/gw_spyld(k)
+      nu=n+1; dep=0.0
+      if (depgw < 0.0) then
+        !saturated
+        dzgw = depgw
+        nu = 0
+      else
 
-      nu=n+1;dep=0.0
-      do i=1, n
-        dep=dep+dz(i)
-        !var(i)%isat=0
-        if (dep>=depgw) then
-          nu=i
-          dzgw=dep-depgw
-          exit
-        endif
+        do i=1, n
+          dep0 = dep
+          dep=dep+dz(i)
+          !var(i)%isat=0
+          if (depgw>dep0 .and. depgw<=dep) then
+            nu=i
+            dzgw=dep-depgw
+            exit
+          endif
 
-      enddo
-
+        enddo
+      endif
 
 
 
@@ -1774,14 +1863,14 @@ contains
 
       !dep=dep-dz(nu)
       do i=nu+1,n
-        !fully saturated zone
+        !saturated zone
         dep=dep+dz(i)
-        h(i)=dep-depgw-0.5*dz(i)	!hydraulic head at the center of a cell
+        h(i)=dep-0.5*dz(i)-depgw	!hydraulic head at the center of a cell
       enddo
 
       if (nu>n) then
         !groundwater table is below the bottom of the soil column, exit the program
-        write(IFPROFILE,*) 'Groundwater table is below the bottom of Soil Column or Fully Saturated Soil', k
+        write(IFBAL,*) 'Groundwater table is below the bottom of Soil Column or Fully Saturated Soil', k
         dzgw=dep-depgw
         !write(*,*) 'Groundwater table is below the bottom of Soil Column or Fully Saturated Soil', k
         !call USTOP('Groundwater table is below the bottom of the soil column or Fully Saturated Soil, exit the program')
@@ -1833,6 +1922,10 @@ contains
           thick=THICK2
         endif
 
+        if (l > 1) then
+          if (thick > 1.5 * DZ(NZ))  thick = 1.5 * DZ(NZ)
+          if (thick < DZ(NZ) * 0.75)  thick = DZ(NZ)
+        endif
 
         if (IDIV==5 .and. thick<=1.0) then  !avoid first term is less than 1,0, resulting in a convergent sequence
           r0=1.2/thick
@@ -1853,6 +1946,7 @@ contains
             dep0=dep0+MaxLayThinck*lmax
           endif
 
+
           NZ=NZ+1
           jt(NZ)=JTL(l)
           dep1=dep0+thick
@@ -1860,9 +1954,11 @@ contains
           if (dep1>=ZBOT(l)) then
             !ZNOD(NNOD)=ZBOT(l)
             DZ(NZ)=ZBOT(l)-dep0
-            if (DZ(NZ)*5<DZ(NZ-1)) then  !to avoid too small trancated lower end
-              DZ(NZ)=0.5*(DZ(NZ-1)+DZ(NZ))
-              DZ(NZ-1)=DZ(NZ)
+            if (NZ > 1) then
+              if (DZ(NZ)*5<DZ(NZ-1)) then  !to avoid too small trancated lower end
+                DZ(NZ)=0.5*(DZ(NZ-1)+DZ(NZ))
+                DZ(NZ-1)=DZ(NZ)
+              endif
             endif
             dep0=ZBOT(l)
             dzf = DZ(NZ)
@@ -1889,8 +1985,9 @@ contains
             if (IDIV==4) thick=thick/ DifRto
             if (IDIV==5) thick=(thick*r0)**(1./DifRto)/r0
           endif
-          if (thick<THICK1 .and. l==1) thick=THICK1
-          if (thick<THICK2 .and. l>1) thick=THICK2
+          !avoid too thin layer at the end of the layer
+          if (thick<THICK1 .and. thick<DZ(NZ) .and. l==1) thick=THICK1
+          if (thick<THICK2 .and. thick<DZ(NZ) .and. l>1) thick=THICK2
         enddo !node within a soil or aquifer layer
 
         ILBNOD(l)=NZ
@@ -2133,28 +2230,57 @@ contains
       end if
     end subroutine
 
-    subroutine print_var(ifout, n, var, t, wc)
+
+    subroutine print_mat(imat)
       implicit none
-      integer, intent(in)		::	ifout, n
-      real, intent(in)		::	t
+      integer imat
+
+      real :: h,wc,phi,k,S,hh
+
+      hh=log10(-SOLMAT(imat)%HBUB)
+      do while (hh <= 6.0)
+        h = -10**hh
+        S=MAT_H2S(imat,h)
+        wc=MAT_S2WC(imat,S)
+        k=MAT_S2K(imat,S)
+        phi=MAT_S2MP(imat,S)
+        write(IFMAT,"(I10,5F15.3)") imat,h,wc,S,k,phi
+        hh=hh+0.2
+      enddo
+
+
+    end subroutine
+
+    subroutine print_var(ifout, k, n, var, t, gw, wc, dx)
+      implicit none
+      integer, intent(in)		::	ifout, k, n
+      real, intent(in)		::	t, gw
       type(vars), intent(inout)	::	var(n)
-      real, optional, intent(in)		::	wc(n)
+      real, optional, intent(in)		::	wc(n), dx(n)
 
       integer			::	i
 
-      if (present(wc)) then
 
+      write (ifout,"(A,I5,A,F10.0,A,F12.3)") "#Soil Profile: ", k," at Time: ",t,' with GWDep: ', gw
+      if (present(dx)) then
         !print header
-        write (ifout,"(7A15,A20,G20.13)")  "isat","h","phi","phiS","K","KS","WC","At time: ",t
+        write (ifout,"(3A10, 4A15)")  "HRU","time","isat","dx","pressure","moisture","hydraulicK"
         do i=1, n
-          write (ifout,"(I15,6E15.7)")  var(i)%isat,var(i)%h,var(i)%phi,var(i)%phiS,var(i)%K,var(i)%KS,wc(i)
+          write (ifout,"(I10,F10.0,I10,4E15.7)")  k,t,var(i)%isat, dx(i),var(i)%h,wc(i),var(i)%K
+        enddo
+
+      elseif (present(wc)) then
+
+        write (ifout,"(3A10, 3A15)")  "HRU","time","isat","pressure","moisture","hydraulicK"
+        do i=1, n
+          write (ifout,"(I10,F10.0,I10,3E15.7)")  k,t,var(i)%isat,var(i)%h,wc(i),var(i)%K
         enddo
 
       else
-        !print header
-        write (ifout,"(6A15,A20,G20.13)")  "isat","h","phi","phiS","K","KS","At time: ",t
+
+        write (ifout,"(3A10, 2A15)")  "HRU","time","isat","pressure","hydraulicK"
         do i=1, n
-          write (ifout,"(I15,5E15.6)")  var(i)%isat,var(i)%h,var(i)%phi,var(i)%phiS,var(i)%K,var(i)%KS
+          write (ifout,"(I10,F10.0,I10,2E15.7)")  k,t,var(i)%isat,var(i)%h,var(i)%K
         enddo
       endif
 
@@ -2232,8 +2358,21 @@ contains
 
     scol%dtmin=1.e-10
 
-    STRFMT="(30('-'), A, I4, 30('-'))"
+    STRFMT="(//,30('-'), A, I4, 30('-'))"
     write (slogfile, STRFMT) 'STARTING READING SOIL FLOW DATA FOR SOL COLUMN ', k
+
+    call URDCOM(IFIN,slogfile,sLine)
+    iLoc=1
+    call URWORD(sLine,iLoc,iStart,iStop,2,scol%IPRINT,r0,slogfile,IFIN) !# of print code
+    !iprint == -1 -> print the whole profile
+    !iprint == 0 -> no print
+    !iprint > 0 -> number of layers to be printed
+    if (scol%IPRINT >= 1) then
+      allocate(scol%OBDep(scol%IPRINT))
+      allocate(scol%OBLay(scol%IPRINT))
+    endif
+
+
 
     call URDCOM(IFIN,slogfile,sLine)
     iLoc=1
@@ -2309,7 +2448,7 @@ contains
       r1=scol%ZTOP
     endif
     !shallst and gw_spyld were read in readgw
-    SOLCOL(i)%DEPGW0=(scol%ZTOP-r1)*1000.0+shallst(i)/gw_spyld(i)
+    scol%DEPGW0=(scol%ZTOP-r1)*1000.0+shallst(i)/gw_spyld(i)
 
     call URDCOM(IFIN,slogfile,sLine)
     iLoc=1
@@ -2380,7 +2519,7 @@ contains
     call URWORD(sLine,iLoc,iStart,iStop,3,iTmp,scol%Kup,slogfile,IFIN)    !
 
     !reading layer infomation
-
+    !call readsoilmat_in_usf(FIN,ZBOT)
     iLay1=scol%Lay1_split
     NLAY=NLAY+iLay1
 
@@ -2396,6 +2535,14 @@ contains
       call URWORD(sLine,iLoc,iStart,iStop,3,iTmp,ZBOT(l),slogfile,IFIN)    !
     enddo
 
+    !read the dep to be printed
+    if (scol%IPRINT > 0) then
+      call URDCOM(IFIN,slogfile,sLine)
+      iLoc=1
+      do  l = 1, scol%IPRINT
+        call URWORD(sLine,iLoc,iStart,iStop,3,iTmp,scol%OBDep(l),slogfile,IFIN)    !
+      enddo
+    endif
 
     if (iLay1>0) then
       !top thin layer division by SWAT
@@ -2426,6 +2573,29 @@ contains
 
     call discretize(IDIV,ThickMin1,ThickMin2,DifRto,NLAY,ZBOT,jt_lay,DZ,NNOD,ILBNOD,jt,iLay1)
 
+    !search for observation layers
+    if (scol%IPRINT > 0) then
+      call URDCOM(IFIN,slogfile,sLine)
+      iLoc=1
+      do  l = 1, scol%IPRINT
+        r0 = ZERO
+        do ii = 1, NNOD
+          r1 = r0 + DZ(ii)
+          if (scol%OBDep(l)>r0 .and. scol%OBDep(l)<=r1) then  !
+            scol%OBDep(l) = ii
+            exit
+          endif
+
+        enddo
+        if (scol%OBDep(l) > r1) then
+          !the obs depth is blow the soil profile bottom
+          write(*,*) "the obs depth", scol%OBDep(l)," is blow the soil profile bottom for HRU ", k
+          call USTOP(' ')
+        endif
+      enddo
+
+    endif
+
     allocate(scol%ILBNOD(0:NLAY))
     allocate(scol%var(NNOD))
     allocate(scol%jt(NNOD))
@@ -2451,14 +2621,18 @@ contains
     !DZ(NUNS)=DZ(NUNS)+dzgw
     call SOLCOL_Update_Node(k,1,NNOD,HEAD)
 
+    if (scol%IPRINT == -1) then
+      call print_var(IFPROFILE,k,NNOD,scol%var,0.0,scol%DEPGW,scol%WC,DZ(1:NNOD))
+    endif
+
 #ifdef debugMODE
-    write (IFDEBUG,"(3a5,2A15)") 'i',"isat",'mat','DX(i)','H(i)'
-    write (IFDEBUG,"(3I5,2E15.7)") (ii,scol%var(ii)%isat,jt(ii),DZ(ii),HEAD(ii),ii=1,NNOD)
+    !write (IFDEBUG,"(3a5,2A15)") 'i',"isat",'mat','DX(i)','H(i)'
+    !write (IFDEBUG,"(3I5,2E15.7)") (ii,scol%var(ii)%isat,jt(ii),DZ(ii),HEAD(ii),ii=1,NNOD)
 #endif
     !update water content
     !call setsaturation(DZ(NUNS),dzgw,scol%var(NUNS),jt(NUNS),scol%WC(NUNS))
 
-    write (IFDEBUG,*) "phi_n after strady", scol%var(NUNS)%phi
+    !write (IFDEBUG,*) "phi_n after strady", scol%var(NUNS)%phi
 
     ! initialize watershed water parameters
     ! ToCheck: It needs to be calculated after initial steady-run
@@ -2532,11 +2706,12 @@ contains
 
   end subroutine
 
-  subroutine readsoilmat_in_usf(FIN)
+  subroutine readsoilmat_in_usf(sfile, ZBOT)
     use ROSSMOD
 
     implicit none
     integer			::	sfile
+    real        ::  ZBOT(*)
     integer			::	i, iis,iie,icol
     integer			::	k
     real				::	r
@@ -2545,16 +2720,11 @@ contains
     character(len=400) :: sline
     type(SOILMAT), pointer	::	p
 
-    sfile = FIN
-    open(newunit=slogfile,file='soil.log')
 
-    read(sfile,'(A)')	sline
+
+    call URDCOM(sfile,slogfile,sline)
     icol=1
-    call URWORD(sline,icol,iis,iie,2,nmat,r,slogfile,sfile)
-    call URWORD(sline,icol,iis,iie,2,iwp,r,slogfile,sfile)
-    call URWORD(sline,icol,iis,iie,2,iawc,r,slogfile,sfile)
 
-    allocate (SOLMAT(nmat))
 
     do i=1, nmat
       p=>SOLMAT(i)
@@ -2590,7 +2760,7 @@ contains
 
     enddo
     close(sfile)
-  end subroutine readsoilmat
+  end subroutine
 
   subroutine readsoilmat
     use ROSSMOD
@@ -2608,13 +2778,14 @@ contains
     open(newunit=sfile,file='soil.mat')
     open(newunit=slogfile,file='soil.log')
 
-    read(sfile,'(A)')	sline
+    call URDCOM(sfile,slogfile,sline)
+
     icol=1
     call URWORD(sline,icol,iis,iie,2,nmat,r,slogfile,sfile)
     call URWORD(sline,icol,iis,iie,2,iwp,r,slogfile,sfile)
     call URWORD(sline,icol,iis,iie,2,iawc,r,slogfile,sfile)
 
-    allocate (SOLMAT(nmat))
+    allocate(SOLMAT(nmat))
 
     do i=1, nmat
       p=>SOLMAT(i)
@@ -2648,6 +2819,10 @@ contains
         p%WCAWC=p%WCFC-p%WCWP
       endif
 
+
+      !output the material soil water characteristic curve
+
+      call print_mat(i)
     enddo
     close(sfile)
   end subroutine readsoilmat
@@ -2659,19 +2834,25 @@ contains
     use parm, only: mhru,nstep,ievent
     real :: dt
 #ifdef debugMODE
-    print *, 'nstep=',nstep
+    !print *, 'nstep=',nstep
 #endif
 
     allocate(SOLCOL(mhru))
-    allocate(SOLMAT(mhru*10))   !assuming the maximum number of layers of each HRU is 10
+    !allocate(SOLMAT(mhru*10))   !assuming the maximum number of layers of each HRU is 10
     open(newunit=IFPROFILE,file="output.sol.col")
-    open(newunit=IFBAL,    file="output.sol.bal")
+
     open(newunit=IFLAY,    file="output.sol.lay")
+    write(IFLAY,"(2A10,4A12)") "HRU","Layer","OBDepth","Time","WC","Head"
+
     open(newunit=IFDEBUG,  file="solflw.info")
 
-    write(IFBAL,"(A5,16A10)") "ihru","Time","GWLevel","Qnet","EpMax","Stor0","Stor1","Runoff", &
+    open(newunit=IFBAL,    file="output.sol.bal")
+    write(IFBAL,"(A5,16A12)") "ihru","Time","GWDepth","Qnet","EpMax","Stor0","Stor1","Runoff", &
                               "Hpond","Infil","Esoil","SeepBot","LatIn","LatOut","Root","BalErr1","BalErr2"
-    !open(newunit=IFMAT,file="output.sol.mat")
+
+    open(newunit=IFMAT,file="output.sol.mat")
+    write(IFMAT,"(2A10,5A15)") "MAT","H","WC","S","K","PHI"
+
     iMAT=0
     !	WRITE(IFMAT,111)
     !111   FORMAT(/7X,'TABLE OF HYDRAULIC PROPERTIES WHICH ARE INTERPOLATED',

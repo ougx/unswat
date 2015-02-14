@@ -146,13 +146,13 @@ subroutine TRS(k)
   !stop
 #endif
   !update storage before soil water model
-#ifdef debugMODE
+
   call SOLCOL_Update_Storage(k)
   s0=sum(scol%WC(1:nun)*scol%DZ(1:nun))
-  qNET=ZERO
-#endif
+
   !~~~~~~~~~~~~~~~end daily variables (not change in the sobroutine)~~~~~~~~~~~~~~~~~~~
 
+  qNET=ZERO
   qsum=ZERO
   sicum=ZERO
   socum=ZERO
@@ -222,23 +222,30 @@ subroutine TRS(k)
   call FinalizeDayUN(k,nun,ntot,runoff,QUB,qsum,evap,sicum,socum,srcum)
 
   scol%QSUM=qsum(1:ntot)
+  s1=sum(scol%WC(1:nun)*scol%DZ(1:nun))
+  sic=sum(sicum)
+  soc=sum(socum)
+  src=sum(srcum)
+  write (IFBAL,'(I5,16((1PG12.4)))') k,tstep(mstep)/24.,scol%DEPGW,qNET,scol%EPMAX*24.,s0,s1, &
+                            sum(runoff),scol%HPOND,infil,evap,drn,sic,soc,src, &
+                            s0+infil-drn+sic-soc-src-s1, &
+                            rain-(s1-s0+scol%HPOND+drn+evap+soc+src-sic)
 
 #ifdef debugMODE
-    s1=sum(scol%WC(1:nun)*scol%DZ(1:nun))
-    sic=sum(sicum)
-    soc=sum(socum)
-    src=sum(srcum)
-    write (IFBAL,'(I5,16(F10.3))') k,tstep(mstep)/24.,scol%DEPGW,qNET,scol%EPMAX*24.,s0,s1, &
-                              sum(runoff),scol%HPOND,infil,evap,drn,sic,soc,src, &
-                              s0+infil-drn+sic-soc-src-s1, &
-                              rain-(s1-s0+scol%HPOND+drn+evap+soc+src-sic)
-    write (IFDEBUG,*) "drn"
-    write (IFDEBUG,*) drn
-    write (IFDEBUG,*) ""
-    call print_var(IFPROFILE,nun,scol%var,iyr*1000.+iida,scol%WC)
+    !write (IFDEBUG,*) "drn"
+    !write (IFDEBUG,*) drn
+    !write (IFDEBUG,*) ""
+    !call print_var(IFPROFILE,nun,scol%var,iyr*1000.+iida,scol%WC)
   !stop
 #endif
-
+  if (scol%IPRINT == -1) then
+    call print_var(IFPROFILE,k,nun,scol%var,tstep(mstep)/24.,scol%DEPGW,scol%WC,DZ)
+  elseif (scol%IPRINT > 0) then
+    do j=1, scol%IPRINT
+      iLAY = scol%OBLay(j)
+      write(IFLAY,"(2I10,4F12.3)") k,iLAY,scol%OBDep(j),tstep(mstep)/24.,scol%WC(iLAY),scol%var(iLAY)%h
+    enddo
+  endif
   !write (*,*) 'excuting at year:', iyr, '   day:', iida
 end subroutine
 
