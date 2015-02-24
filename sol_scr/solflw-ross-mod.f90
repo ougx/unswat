@@ -25,6 +25,7 @@ module ROSSMOD
   REAL,PARAMETER						 ::		ZERO=0.0e0,HALF=0.5e0,ONE=1.0e0,TWO=2.0e0
   REAL,PARAMETER						 ::		UnitU2S=36.0e0 !m/s to mm/hr, used for overland flow calculation
   REAL,PARAMETER						 ::		GRAVITY      = 9.80665
+  REAL,PARAMETER						 ::		hydrcmin      = 1.e-20 !minimum hydraulic conductivity
   !real,     save        ::  TEMPFAC   !temperature factor on K, K'=K*TEMPFAC, TEMPFAC=0.001, if temperature of soil layer < 0 C, otherwise TEMPFAC = 1.0
 
   real,parameter  ::   H10kPa    =-1000    !mm, 10 kPa field capacity, 0.1 bar
@@ -39,7 +40,7 @@ module ROSSMOD
   real,parameter  ::   Smax=1.001					!max value for layer saturation to allow some overshoot.
 
 
-  real,parameter  ::   MaxLayThinck=1000.0e0					!max value for layer saturation to allow some overshoot.
+  real,parameter  ::   MaxLayThinck=5000.0e0					!max value for layer saturation to allow some overshoot.
 
 
 
@@ -54,6 +55,7 @@ module ROSSMOD
   TYPE vars
     INTEGER::isat
     REAL ::h,phi,phiS,K,KS
+    real :: S
   END TYPE vars
 
   !  type SOILCOMP
@@ -188,7 +190,11 @@ module ROSSMOD
     !
 
     real                ::  ZTOP      		!land surface elevation of the HRU(mm)
-    real                ::  DEPGW0    		!refernence point of groundwater table (mm)
+    real                ::  DEPBOT      	!depth of the profile bottom(mm)
+    real                ::  DEPGWREF    	!refernence point of groundwater table (mm)
+    real                ::  DEPGWSRT    	!groundwater table at the start of a time step(mm)
+    real                ::  DEPGWEND    	!groundwater table at the end of a time step (mm)
+    real                ::  DEPRZONE 		  !root zone depth
 
     real                ::  Kdn    		!hydraulic conductivity of the top skin layer for infiltration (downward) (mm/hour)
     real                ::  Kup    		!hydraulic conductivity of the top skin layer for evaporation (upward) (mm/hour)
@@ -252,12 +258,13 @@ module ROSSMOD
   integer ::  IFBAL           !file number for soil water balance
   integer ::  IFLAY           !file number for soil water layer
   integer ::  IFDEBUG					!file number for debug info
+  integer ::  IFDIS					  !file number for soil discretization
   type(SOILCOLUMN), target, allocatable :: SOLCOL(:)
   type(SOILMAT),    target, allocatable :: SOLMAT(:)
 
 contains
 
-  pure real function MAT_S2WC(IMAT,S)
+  elemental real function MAT_S2WC(IMAT,S)
     real, intent(in) 								:: 		S
     integer, intent(in) 						::		IMAT
     !real, intent(out) 							::		MAT_S2WC
@@ -268,7 +275,7 @@ contains
     endif
   end function
 
-  pure real function MAT_WC2S(IMAT,WC)
+  elemental real function MAT_WC2S(IMAT,WC)
     real, intent(in) 								:: 		 WC
     integer, intent(in) 						::		IMAT
 
@@ -281,7 +288,7 @@ contains
     endif
   end function
 
-  pure real function MAT_S2H(IMAT,S)
+  elemental real function MAT_S2H(IMAT,S)
     real, intent(in) 								:: 		S
     integer, intent(in) 						::		IMAT
     if (S>=1.0) then
@@ -291,7 +298,7 @@ contains
     endif
   end function
 
-  pure real function MAT_S2MP(IMAT,S)
+  elemental real function MAT_S2MP(IMAT,S)
     real, intent(in) 								:: 		S
     integer, intent(in) 						::		IMAT
     if (S>=1.0) then
@@ -301,18 +308,19 @@ contains
     endif
   end function
 
-  pure real function MAT_S2K(IMAT,S)
+  elemental real function MAT_S2K(IMAT,S)
     real, intent(in) 								:: 		S
     integer, intent(in) 						::		IMAT
     if (S>=1.0) then
       MAT_S2K=SOLMAT(IMAT)%KSAT
     else
       MAT_S2K=SOLMAT(IMAT)%KSAT*S**SOLMAT(IMAT)%ETA
+      if (MAT_S2K<hydrcmin) MAT_S2K = hydrcmin
     endif
   end function
 
 
-  pure real function MAT_WC2H(IMAT,WC)
+  elemental real function MAT_WC2H(IMAT,WC)
     real, intent(in) 								:: 		WC
     integer, intent(in) 						::		IMAT
 
@@ -324,7 +332,7 @@ contains
   end function
 
 
-  pure real function MAT_H2MP(IMAT,H)
+  elemental real function MAT_H2MP(IMAT,H)
     real, intent(in) 								:: 		H
     integer, intent(in) 						::		IMAT
     !real	:: S
@@ -337,7 +345,7 @@ contains
     endif
   end function
 
-  pure real function MAT_MP2H(IMAT,MP)
+  elemental real function MAT_MP2H(IMAT,MP)
     real, intent(in) 								:: 		MP
     integer, intent(in) 						::		IMAT
     !real	::	S
@@ -350,7 +358,7 @@ contains
     endif
   end function
 
-  pure real function MAT_H2S(IMAT,H)
+  elemental real function MAT_H2S(IMAT,H)
     real, intent(in) 								:: 		H
     integer, intent(in) 						::		IMAT
     if (H>=SOLMAT(IMAT)%HBUB) then
@@ -360,18 +368,35 @@ contains
     endif
   end function
 
+  elemental real function MAT_H2Kh(IMAT,H, K, S)
+    real, intent(in) 								:: 		H, K, S
+    integer, intent(in) 						::		IMAT
+    real r1, r2
+    if (H>=SOLMAT(IMAT)%HBUB) then
+      MAT_H2Kh=0.0
+    else
+      !par S / par H
+      r1 = -SOLMAT(IMAT)%LAM/H
+      !par K / par S
+      r2 = K*SOLMAT(IMAT)%ETA
+      MAT_H2Kh= r1*r2
+    endif
+  end function
 
-  pure real function MAT_MP2S(IMAT,MP)
+
+  elemental real function MAT_MP2S(IMAT,MP)
     real, intent(in) 								:: 		MP
     integer, intent(in) 						::		IMAT
-    if (MP>=SOLMAT(IMAT)%PHIE) then
+    if (MP<0) then
+      MAT_MP2S=-1.
+    elseif (MP>=SOLMAT(IMAT)%PHIE) then
       MAT_MP2S=1.0
     else
       MAT_MP2S=(MP/SOLMAT(IMAT)%PHIE)**(1/(SOLMAT(IMAT)%ETA-1/SOLMAT(IMAT)%LAM))
     endif
   end function
 
-  pure real function MAT_MP2WC(IMAT,MP)
+  elemental real function MAT_MP2WC(IMAT,MP)
     real, intent(in) 								:: 		MP
     integer, intent(in) 						::		IMAT
     real	::	S
@@ -382,27 +407,30 @@ contains
     endif
   end function
 
-  pure real function MAT_H2K(IMAT,H)
+  elemental real function MAT_H2K(IMAT,H)
     real, intent(in) 								:: 		H
     integer, intent(in) 						::		IMAT
     if (H>SOLMAT(IMAT)%HBUB) then
       MAT_H2K=SOLMAT(IMAT)%KSAT
     else
       MAT_H2K=SOLMAT(IMAT)%KSAT*MAT_H2S(IMAT,H)**SOLMAT(IMAT)%ETA
+      if (MAT_H2K<hydrcmin) MAT_H2K = hydrcmin
     endif
+
   end function
 
-  pure real function MAT_MP2K(IMAT,MP)
+  elemental real function MAT_MP2K(IMAT,MP)
     real, intent(in) 								:: 		MP
     integer, intent(in) 						::		IMAT
     if (MP>=SOLMAT(IMAT)%PHIE) then
       MAT_MP2K=SOLMAT(IMAT)%KSAT
     else
       MAT_MP2K=SOLMAT(IMAT)%KSAT*MAT_MP2S(IMAT,MP)**SOLMAT(IMAT)%ETA
+      if (MAT_MP2K<hydrcmin) MAT_MP2K = hydrcmin
     endif
   end function
 
-  pure real function MAT_H2WC(IMAT,H)
+  elemental real function MAT_H2WC(IMAT,H)
     real, intent(in) 								:: 		H
     integer, intent(in) 						::		IMAT
     if (H>=SOLMAT(IMAT)%HBUB) then
@@ -469,9 +497,11 @@ contains
         p=>SOLMAT(j)
         lnS=log(S(i))
         v1=exp(-lnS/p%LAM); v2=exp(p%ETA*lnS)
-        v%h=p%HBUB*v1; v%K=p%KSAT*v2; v%phi=p%phie*v1*v2
+        v%h=p%HBUB*v1; v%K=p%KSAT*v2
+        if (v%K<hydrcmin) v%K = hydrcmin
+        v%phi=p%phie*v1*v2
         v%KS=p%eta*v%K/S(i); v%phiS=(p%eta-one/p%lam)*v%phi/S(i)
-        !v%wc=S(i)*p%WCS
+        v%S=S(i)
       end if
     end do
   END SUBROUTINE hyofS
@@ -491,7 +521,10 @@ contains
     REAL::a
     TYPE(SOILMAT),POINTER::p
     p=>SOLMAT(j); a=-p%lam*p%eta
-    K=p%KSAT*exp(a*log(h/p%HBUB)); Kh=a*K/h ! exp and log may be faster than **
+    ! exp and log may be faster than **
+    K=p%KSAT*exp(a*log(h/p%HBUB))
+    if (K<hydrcmin) K = hydrcmin
+    Kh=a*K/h
     phi=K*h/(one+a)
   END SUBROUTINE hyofh
 
@@ -555,12 +588,10 @@ contains
 
   end subroutine
 
-  subroutine SOLCOL_Update_Node(k,n0,n1,h)
-    !this subroutine sums up the soil water storage for SWAT layer and the entire hru
-    !input: m, n, jt, var
-    !output: wc, totwc
+  subroutine SOLCOL_Update_Node_h(k,n0,n1,h)
+    !this subroutine update node variables: h wc, K, Ks, phi, phiS
     integer, intent(in)       ::  k,n0,n1           !ID of column
-    real, intent(in)       ::  h(n1)
+    real, intent(in)       ::  h(n0:n1)
     !    integer       ::  m           !# of unsaturated
     !    integer       ::  n           !total # of cells
     !    integer       ::  jt(n)       !soil type
@@ -570,22 +601,24 @@ contains
     !---------------------------------------------------------------------------------
     integer       ::  i,j
     type(SOILCOLUMN), pointer :: scol
+    real :: s
     scol=>SOLCOL(k)
-
     do i=n0,n1
       !!update status
       j=scol%jt(i)
       if (h(i)>SOLMAT(j)%HBUB) then
         scol%var(i)%isat=1
-        scol%var(i)%K=SOLMAT(j)%KSAT
         scol%var(i)%KS=ZERO
         scol%var(i)%phiS=ZERO
       else
         scol%var(i)%isat=0
       endif
+      s = MAT_H2S(j,h(i))
+      scol%var(i)%S = s
       scol%var(i)%h=h(i)
       scol%var(i)%phi=MAT_H2MP(j,h(i))
-      scol%WC(i)=MAT_H2WC(j,h(i))
+      scol%var(i)%K=MAT_S2K(j,s)
+      scol%WC(i)=MAT_S2WC(j,s)
 
     enddo
 
@@ -634,7 +667,38 @@ contains
   !		SOLCOL_WATER_MASS=WCCOL
   !		return
   !	end function
-  SUBROUTINE solve_steady(nn,dx,jt,htop,hbot,hh,qflux,wc)
+
+  subroutine initial_state(nn,dx,jt,htop,hbot,hh)
+    IMPLICIT NONE
+    !integer, parameter :: nn=10
+    INTEGER,INTENT(IN)::nn
+    INTEGER,INTENT(IN)::jt(nn)
+    REAL,INTENT(IN):: dx(nn),htop,hbot
+    REAL,INTENT(INOUT)::hh(nn)
+
+    !REAL(RK),INTENT(OUT):: S(nn)
+    INTEGER::i
+    real :: r1
+    real :: H(nn + 1), dz(nn)
+    integer :: n
+
+    n=nn+1
+
+    dz(1:(nn-1))=HALF*(dx(1:(nn-1))+dx(2:nn))
+    dz(nn)=HALF*dx(nn)
+    !initial guess: linear distribution
+    !parameters
+    r1=(htop-hbot)/sum(dz)
+    H(1)=htop
+    H(n)=hbot
+    do i=nn,2,-1
+      H(i)=H(i+1)+dz(i)*r1
+    enddo
+    hh = H(1:nn)
+    return
+  end subroutine
+
+  SUBROUTINE solve_steady(nn,dx,jt,htop,hbot,hh)
 
     IMPLICIT NONE
     !integer, parameter :: nn=10
@@ -642,7 +706,6 @@ contains
     INTEGER,INTENT(IN)::jt(nn)
     REAL,INTENT(IN):: dx(nn),htop,hbot
     REAL,INTENT(INOUT)::hh(nn)
-    REAL,INTENT(INOUT)::qflux,wc(nn)
     !REAL(RK),INTENT(OUT):: S(nn)
 
     LOGICAL :: convergence
@@ -656,9 +719,9 @@ contains
 
 
     n=nn+1
-    TolH=0.001
+    TolH=1.
     dz=ZERO
-    dz(1:nn-1)=HALF*(dx(1:nn-1)+dx(2:nn))
+    dz(1:(nn-1))=HALF*(dx(1:(nn-1))+dx(2:nn))
     dz(nn)=HALF*dx(nn)
 
     aa=zero
@@ -667,14 +730,14 @@ contains
     dd=zero
     !initial guess: linear distribution
     !parameters
-    r1=(htop-hbot)/(sum(dz)-HALF*dz(1))
+    r1=(htop-hbot)/sum(dz)
     H(1)=htop
     H(n)=hbot
     do i=nn,2,-1
       H(i)=H(i+1)+dz(i)*r1
     enddo
     !no steady-state solver
-    return
+
 
 
     !top boundary
@@ -702,8 +765,6 @@ contains
         K(i)=MAT_H2K(jt(i),H(i))
       enddo
 
-      !if (debuGGing) write(*,*) K
-      !GENERATE TERMS OF MATRIX EQUATION
       i=1
 
       khalf2=half*(k(i+1)+k(i))
@@ -716,10 +777,10 @@ contains
         khalf2=half*(k(i+1)+k(i))
         r2=khalf2/dz(i)
 
-        aa(i)=-r1
-        bb(i)=r1+r2
-        cc(i)=-r2
-        dd(i)=khalf1-khalf2
+        aa(i)= -r1
+        bb(i)= r1+r2
+        cc(i)= -r2
+        dd(i)= khalf1-khalf2
 
       enddo
 
@@ -727,8 +788,8 @@ contains
       !if (debuGGing) write(*,*) aa
 
       !solve the matrix
-      call tri(0,nn,aa,bb,cc,dd,ee,H)
-      !call solve_tridiag(1,nn,aa,bb,cc,dd,H)
+      !call tri(0,nn,aa,bb,cc,dd,ee,H)
+      call solve_tridiag(aa,bb,cc,dd,H,n)
 
       !check convergence
       convergence=.true.
@@ -750,12 +811,8 @@ contains
 #ifdef debugMODE
       !write (*,*) 'solve_steady: Reach the maximum iteration number, steady state solution not archived'
       !write (*,*) 'solve_steady: The initial value will be set as the average of the last two iteration.'
-      !write (IFDEBUG,*) 'solve_steady: Reach the maximum iteration number, steady state solution not archived'
-      !write (IFDEBUG,*) 'solve_steady: The initial value will be set as the average of the last two iteration.'
-      !write (IFDEBUG,"(6A20)") 'i','DX(i)','K(i)','H(i)','TEMP_H(i)',"Diff"
-      !do i=1,nn
-      !  write (IFDEBUG,"(I20,5G20.11)") i,dx(i),K(i),H(i),Htmp(i),abs(Htmp(i)-H(i))
-      !enddo
+      write (IFDEBUG,"(A)") '# solve_steady: Reach the maximum iteration number, steady state solution not archived'
+      !write (IFDEBUG,"(A)") 'solve_steady: The initial value will be set as the average of the last two iteration.'
 #endif
       H=0.5*(H+Htmp)
     endif
@@ -764,17 +821,227 @@ contains
     hh(1:nn)=H(1:nn)
 
 #ifdef debugMODE
+    write (IFDEBUG,"(6A20)") 'i','DX(i)','K(i)','H(i)','TEMP_H(i)',"Diff"
+    do i=1,nn
+      write (IFDEBUG,"(I20,5F20.5)") i,dx(i),K(i),H(i),Htmp(i),abs(Htmp(i)-H(i))
+    enddo
+#endif
+
+
+  end subroutine solve_steady
+
+  SUBROUTINE solve_steady_newton(nn,dx,jt,htop,hbot,hh)
+
+    IMPLICIT NONE
+    !integer, parameter :: nn=10
+    INTEGER,INTENT(IN)::nn
+    INTEGER,INTENT(IN)::jt(nn)
+    REAL,INTENT(IN):: dx(nn),htop,hbot
+    REAL,INTENT(INOUT)::hh(nn)
+    !REAL(RK),INTENT(OUT):: S(nn)
+
+    LOGICAL :: convergence
+    INTEGER::i, iTER
+    REAL,DIMENSION(nn+1)::K,H,Htmp,dz,delh,Kh
+    REAL,DIMENSION(nn+1)::aa,bb,cc,dd,ff
+
+    REAL  :: khalf1,khalf2,TolH,grad1,grad2
+    real  :: k1h1,k1h2,k2h1,k2h2
+    REAL  :: r1,r2,S
+    integer :: n
+
+
+    n=nn+1
+    TolH=0.01
+    delh=ZERO
+    dz=ZERO
+    dz(1:(nn-1))=HALF*(dx(1:(nn-1))+dx(2:nn))
+    dz(nn)=HALF*dx(nn)
+
+    aa=zero
+    bb=zero
+    cc=zero
+    dd=zero
+    !initial guess: linear distribution
+    !parameters
+    r1=(htop-hbot)/sum(dz)
+    H(1)=htop
+    H(n)=hbot
+
+    do i=nn,2,-1
+      H(i)=H(i+1)+dz(i)*r1
+    enddo
+    !no steady-state solver
+
+
+
+    !top boundary
+    i=1
+    aa(i)=zero
+    bb(i)=one
+    cc(i)=zero
+    ff(i)=zero
+    S =     MAT_H2S(jt(i), H(i))
+    K(i)=   MAT_S2K(jt(i),S)
+    Kh(i) = MAT_H2Kh(jt(i),H(i),K(i),S)
+
+    !bottom boundary
+    i=n
+    cc(i)=zero
+    bb(i)=one
+    aa(i)=zero
+    ff(i)=hbot    !top of the saturated zone (top of capilary zone)
+    S =     MAT_H2S(jt(i-1),H(i))
+    K(i)=   MAT_S2K(jt(i-1),S)
+    Kh(i) = MAT_H2Kh(jt(i-1),H(i),K(i),S)
+
+
+    do iTER=1,3000
+      !store initial values
+      Htmp=H
+
+      !calculate parameters
+      do i=2, nn
+        S =     MAT_H2S(jt(i), H(i))
+        K(i)=   MAT_S2K(jt(i),S)
+        Kh(i) = MAT_H2Kh(jt(i),H(i),K(i),S)
+      enddo
+
+      !if (debuGGing) write(*,*) K
+      !GENERATE TERMS OF MATRIX EQUATION
+      i=1
+
+      khalf2=half*(k(i+1)+k(i))
+      r2=khalf2/dz(i)
+      grad2 = (H(i)-H(i+1))/dz(i) + 1
+
+      k2h1 = 0.5*Kh(i)
+      k2h2 = 0.5*Kh(i+1)
+
+      do i=2, nn
+        r1=r2
+        khalf1=khalf2
+        grad1=grad2
+        k1h1=k2h1
+        k1h2=k2h2
+
+        khalf2=half*(k(i+1)+k(i))
+        r2=khalf2/dz(i)
+        grad2 = (H(i)-H(i+1))/dz(i) + 1
+
+        k2h1 = 0.5*Kh(i)
+        k2h2 = 0.5*Kh(i+1)
+
+        ff(i) = khalf2*grad2 - khalf1*grad1
+        aa(i) = -r1 - k1h1 * grad1
+        bb(i) = r1+r2 + k1h2 * grad2 - k2h1 * grad1
+        cc(i) = -r2 - k2h2 * grad1
+
+
+      enddo
+
+
+      !if (debuGGing) write(*,*) aa
+
+      !solve the matrix
+      !call tri(0,nn-1,aa,bb,cc,dd,ff,delh)
+      call solve_tridiag(aa,bb,cc,ff,delh,nn)
+
+      !check convergence
+      convergence=.true.
+      H = H - delh
+      do i = 2, nn
+
+        if (abs(ff(i))>TolH)  then
+          convergence=.false.
+
+        endif
+
+      enddo
+
+      if (convergence) exit
+    enddo   !iteration loop: iTER
+
+    if (.not. convergence) then
+#ifdef debugMODE
+      !write (*,*) 'solve_steady: Reach the maximum iteration number, steady state solution not archived'
+      !write (*,*) 'solve_steady: The initial value will be set as the average of the last two iteration.'
+      write (IFDEBUG,*) 'solve_steady: Reach the maximum iteration number, steady state solution not archived'
+      write (IFDEBUG,*) 'solve_steady: The initial value will be set as the average of the last two iteration.'
+#endif
+      H=0.5*(H+Htmp)
+    endif
+    !output
+    !qflux=khalf1*((H(nn-1)-H(nn))/dz(nn-1)+1)
+    hh(1:nn)=H(1:nn)
+
+#ifdef debugMODE
+      write (IFDEBUG,"(6A20)") 'i','DX(i)','K(i)','H(i)',"DELH",'ff(i)'
+      do i=1,nn
+        write (IFDEBUG,"(I20,5F20.5)") i,dx(i),K(i),H(i),delh(i),ff(i)
+      enddo
     !write (IFDEBUG,*) "qflux is ", qflux
     !write (IFDEBUG,*) "khalf2, H(nn-1), H(nn), dz(nn-1),hbot", khalf1, H(nn-1), H(nn), dz(nn-1),hbot
     !write (IFDEBUG,*) "K*(Hn-Hbot)*2.0/dz(i)-K ", khalf2*((H(nn)-hbot)/dz(nn)+1)
 #endif
 
 
-  end subroutine solve_steady
+  end subroutine
+
+
+  subroutine solve_tridiag(a,b,c,d,x,n)
+  implicit none
+  !        a - sub-diagonal (means it is the diagonal below the main diagonal)
+  !        b - the main diagonal
+  !        c - sup-diagonal (means it is the diagonal above the main diagonal)
+  !        d - right part
+  !        x - the answer
+  !        n - number of equations
+  !be aware of zero divide
+  integer,intent(in) :: n
+  real,dimension(n),intent(in) :: a,b,c,d
+  real,dimension(n),intent(out) :: x
+  real,dimension(n) :: cp,dp
+  real :: m, BBMIN !,BBMAX,bi
+  integer :: i, k(n)
+
+  k=0
+  !BBMIN=1d-100
+  ! initialize c-prime and d-prime
+  cp(1) = c(1)/b(1)
+  dp(1) = d(1)/b(1)
+  ! solve for vectors c-prime and d-prime
+  do i = 2,n
+    m = b(i)-cp(i-1)*a(i)
+    !if (abs(m)<BBMIN) then
+    !k(i)=1
+    !cycle
+    !m=sign(BBMIN,m)
+    !if (debuGGing) then
+    !     write(IFPROFILE, "(4A20)")'A','B','C','D'
+    !     do k=1, n
+    !       write(IFPROFILE, "(4(1PE20.10))") a(k), b(k),c(k),d(k)
+    !     enddo
+    !     stop
+    !   endif
+    !endif
+    cp(i) = c(i)/m
+    dp(i) = (d(i)-dp(i-1)*a(i))/m
+  enddo
+  ! initialize x
+  x(n) = dp(n)
+  ! solve for x from the vectors c-prime and d-prime
+  do i = n-1, 1, -1
+    x(i) = dp(i)-cp(i)*x(i+1)
+    !if (isnan(x(i))) call ustop('"Pressure head" is a NaN')
+  end do
+
+  end subroutine solve_tridiag
 
 
   SUBROUTINE solve(k,ts,tfin,qprec,qevap,n,dx,jt,hqmin,hETmin,hbot,h0,Kd,Ku,var,fzn,snl,kappa,evap,runoff,infil,drn, &
       qsum,sicum,socum,srcum,dtmin,dtmax,dSmax,dSmaxr,dSfac,dpmaxr,lowgw)
+    use parm, only: shallst
     IMPLICIT NONE
     INTEGER,INTENT(IN)::k,n,jt(n)
     REAL,INTENT(IN):: ts,tfin,qprec,qevap,hbot
@@ -862,12 +1129,14 @@ contains
     !REAL::h0et,S1et,K0et,Kh0et,phi0et !OGX:
     REAL::qhov  !OGX: derivative of q_ov WRT h_0
     REAL::qov   !OGX: overland flow/L_s, q_surf in the paper
+    real::S0,Sn !OGX: top and bottom effective saturation
     !TYPE(vars)::v0et  !OGX
     logical :: limitET, SatEx
     REAL,DIMENSION(n)::sli,slo,srt,qex
 #ifdef debugMODE
     integer :: dtline(20)
     real :: dt0(0:20), facc(20)
+    real :: r1,r2,r3
     dtline = 0
     dt0 = 0.
     facc=0
@@ -875,6 +1144,7 @@ contains
     snlmm=snl
     j=jt(1); p=>SOLMAT(j)
     phip=max(p%phie-p%HBUB*p%KSAT,1.00001*p%phie) ! phi at h=0
+    S0=MAT_H2S(j, hETmin)
     ! get K, Kh and phi at hETmin (hETmin is smallest h, stored in hyprops)
     !OGX: hETmin is the lowest value control ET
     call hyofh(hETmin,j,Kmin1,KhETmin1,phimin1)
@@ -886,8 +1156,15 @@ contains
     j=jt(n); p=>SOLMAT(j)
     !hbot=ZERO
     !if (.not. lowgw) then
-      getqn=.true.
-      vbot=vars(1,hbot,(hbot-p%HBUB)*p%KSAT+p%phie,zero,p%KSAT,zero)
+    getqn=.true.
+    if (hbot<p%HBUB) then
+      Sbot(1)=MAT_H2S(j,hbot)
+      call hyofS(Sbot,1,(/j/),vcall)
+      vbot=vcall(1)
+      vbot%isat=0
+    else
+      vbot=vars(1,hbot,(hbot-p%HBUB)*p%KSAT+p%phie,zero,p%KSAT,zero,1.)
+    end if
     !endif
     !----- end set up for boundary conditions
     !----- initialise
@@ -918,21 +1195,21 @@ contains
     !				c=zero ! temp storage for soln concns
     !			end if
     !S=ZEROqya
-    do i=1,n
-      S(i)=MAT_MP2S(jt(i),var(i)%phi) !calculate S of each node
-    enddo
+
+    S    =var%S
+    var%K=MAT_S2K(jt,S)    !
 #ifdef debugMODE
     !write (IFDEBUG,*) 'S is:   ', S(1:n)
     !write (IFDEBUG,*) 'isat is:   ', var(1:n)%isat
     !prectot=zero
 #endif
 
-    where (S>=one) var%K=SOLMAT(jt)%KSAT
+    !where (S>=one) var%K=SOLMAT(jt)%KSAT
 
     !----- end initialise
     !----- solve until tfin
 
-    str0=sum((SOLMAT(jt)%WCS-SOLMAT(jt)%WCSR*(1.0-S))*dx)
+    !str0=sum((SOLMAT(jt)%WCS-SOLMAT(jt)%WCSR*(1.0-S))*dx)
     qpme=qprec-qevap ! input rate
 
     do while (t<tfin)
@@ -973,10 +1250,12 @@ contains
         ! update variables
         if (iflux==1) call hyofS(S,n,jt,var) ! for layers where S<1
         ! phi is solution var at satn, so h calc from phi where S>=1
-        where (S>=one)
-          var%h=SOLMAT(jt)%HBUB+(var%phi-SOLMAT(jt)%phie)/SOLMAT(jt)%KSAT
+
+        !where (S>=one)
+          !var%h=SOLMAT(jt)%HBUB+(var%phi-SOLMAT(jt)%phie)/SOLMAT(jt)%KSAT
+          !var%h=MAT_MP2H(jt,var%phi)
           !var%K=SOLMAT(jt)%KSAT
-        end where
+        !end where
 
         var%K=var%K*fzn
         !----qya- get fluxes and derivs
@@ -990,10 +1269,10 @@ contains
 !--------------------------------------------------------------------------------
         if (var(1)%phi<=phip.and.h0<=zero.and.nsat<n) then ! no ponding
           ns=1 ! start index for eqns
-          vtop=vars(0,hETmin,phimin1,zero,Kmin1,zero) ! vars at soil surface
+          vtop=vars(0,hETmin,phimin1,zero,Kmin1,zero,S0) ! vars at soil surface
         else ! ponding
           ns=0
-          vtop=vars(1,h0,(h0-p%HBUB)*p%KSAT+p%phie,zero,p%KSAT,zero)
+          vtop=vars(1,h0,(h0-p%HBUB)*p%KSAT+p%phie,zero,p%KSAT,zero,1.)
         end if
 !--------------------------------------------------------------------------------
 
@@ -1102,7 +1381,8 @@ contains
         !							 ! correction 4/4/07
         !							 !where (var%isat==0) thf=abs(q(1:n)-q(0:n-1)-qex)/(SOLMAT(jt)%WCSR*dx)
         !							else
-        call SetSS(k,n,var,dx,slo,sli,srt)
+        qex=ZERO
+        call SetSS(k,n,S,dx,slo,sli,srt)
         qex=slo-sli+srt   !!OGX: mm/hr
 
 #ifdef debugMODE
@@ -1393,6 +1673,17 @@ contains
           end if
 
           do i=1,n
+#ifdef debugMODE
+            !check dy and q
+            if (S(i)<0.001) then
+              write(IFDEBUG, "(//,3A5,9A12)") "hru", "lay", "isat","t","dt","S", "q0mm", "q1mm","qroot","qlat","dWCmm","dQmm"
+              r1 = (q(i-1)+sig*(qya(i-1)*dy(i-1)+qyb(i-1)*dy(i)))*dt
+              r2 = (q(i)+  sig*(qya(i)*  dy(i)+  qyb(i)*  dy(i+1)))*dt
+              r3 = r1-r2
+              write(IFDEBUG, "(3I5,9(1PE12.4))") k,i,var(i)%isat,t/24.,dt,S(i),r1,r2, &
+                    srt(i)*dt,slo(i)*dt,MAT_S2WC(jt(i),dy(i))*dx(i),r3
+            endif
+#endif
             j=jt(i); p=>SOLMAT(j); v=>var(i)
             if (v%isat==0) then
               if (.not.again) then
@@ -1424,7 +1715,19 @@ contains
           write(IFDEBUG,"(A,8G10.2)") "fac             ", facc(1:8)
           write(IFDEBUG,"(A,9G10.2)") "dt    ", dt0(0:8)
           write(IFDEBUG,*) "The 24h precipitation rate is", qprec
-          call print_var(IFPROFILE,k,n,var,t,hbot,S,dx)
+          call print_var(IFPROFILE,k,n,var,t/24.,shallst(k),S*SOLMAT(jt)%WCSR,dx,qsum)
+
+          write (IFDEBUG,"(3A10, 7A15)")  "HRU","time","isat","dx","pressure","moisture","hydraulicK", "phi", "SRoot","SLat"
+          do i=1, n
+            j=jt(i)
+            write (IFDEBUG,"(I10,F10.0,I10,7E15.7)")  k,t/24.,var(i)%isat,dx(i), &
+                                                          MAT_S2H(j,S(i)), &
+                                                          MAT_S2WC(j,S(i)), &
+                                                          MAT_S2K(j,S(i)), &
+                                                          var(i)%phi, &
+                                                          srt(i), &
+                                                          slo(i)
+          enddo
 #endif
           call USTOP(' dt is smaller than user defined')
         end if
@@ -1451,10 +1754,17 @@ contains
 #endif
       end do
 
-      !update Phi
-      do i=1,n
-          if (var(i)%isat==0) var(i)%phi=MAT_S2MP(jt(i),S(i))
-      enddo
+      !update variables
+      var%S=S
+      var%K=MAT_S2K(jt,S)
+      SOLCOL(k)%WC(1:n)=MAT_S2WC(jt,S)
+
+      where (var%isat==0)
+        var%phi=MAT_S2MP(jt,S)
+        var%h=MAT_S2H(jt,S)
+      elsewhere
+        var%h=MAT_MP2H(jt,var%phi)
+      end where
 
       qsum(0)=infil
       qsum(n)=drn
@@ -1540,7 +1850,7 @@ contains
               itmp=itmp+1
               if (itmp>1000) then
                 write (*,*) "getfluxes: too many iterations finding interface h"
-                stop
+                call USTOP(' ')
               end if
               if (hi<p%HBUB) then
                 vi1%isat=0
@@ -1700,7 +2010,7 @@ contains
       END SUBROUTINE fluxsuf
     END SUBROUTINE flux
 
-    subroutine SetSS(k,n,var,DZ,SLout,SLin,SRT)
+    subroutine SetSS(k,n,S,DZ,SLout,SLin,SRT)
       !set up the sorce and sink
       !N    ~ node number of unsaturated zone and the virtual node
       !H    ~ pressure head of each node
@@ -1713,14 +2023,14 @@ contains
       use parm, only: ubw, hru_slp, slsoil
       implicit none
       integer, intent(in) :: k, n
-      type(vars), intent(in) :: var(n)
+      real, intent(in) :: S(n)
       real, dimension(n), intent(in)	:: DZ
       real, dimension(n), intent(out)	:: SLout,SLin,SRT
 
       !!local variables
       integer :: iLAY, i, iSTEP, j, iTMP0, iTMP1, nNOD, nNODm1
       real ::  r0,r1,dep
-      real ::  WC, AWC, WCFC, WCSAT, SSURF, LSOIL, EPMAX, DEPRT, WUP, WDN, CON
+      real ::  WC, AWC, WCFC, WCSAT, WCWP,SSURF, LSOIL, EPMAX, DEPRT, WUP, WDN, CON, ROOTMAX
       type(SOILMAT), pointer :: mat
 
 
@@ -1728,13 +2038,13 @@ contains
       SSURF=hru_slp(k)       !hru surface slope
       EPMAX=SOLCOL(k)%EPMAX  !maximum transpiration rate, mm/hr
       DEPRT=SOLCOL(k)%DEPROT	!depth of root
-
+      ROOTMAX=SOLCOL(k)%DEPRZONE
       !compute source and sink (the S term)
       SLin=ZERO
       SLout=ZERO
       SRT=ZERO
       if (SOLCOL(k)%QLATIN>0.0) then
-        r0=SOLCOL(k)%QLATIN/sum(DZ)  !lateral inflow
+        r0=SOLCOL(k)%QLATIN/min(sum(DZ),ROOTMAX)  !lateral inflow
         SLin=DZ*r0
       endif
 
@@ -1744,17 +2054,18 @@ contains
         j=SOLCOL(k)%jt(i)
         mat=>SOLMAT(j)
         !if (iLAY>sol_nly(k)) exit !not calculate deep root?
+        WCWP = mat%WCWP
         AWC=  mat%WCAWC
         WCFC= mat%WCFC
         WCSAT=mat%WCS
 
-        WC=MAT_H2WC(j,var(i)%h)
+        WC=MAT_S2WC(j,S(i))
         !DTMP=WCNEW(i)
 
         !!  unsaturated lateral flow, perched water table
         !!  COMPUTE LATERAL FLOW USING HILLSLOPE STORAGE METHOD
         if (WC>WCFC) then   !not including saturated zone
-          CON=MAT_H2K(j,var(i)%h)
+          CON=MAT_S2K(j,S(i))
           SLout(i)=0.001*2.0*DZ(i)*CON*(WC-WCFC)*SSURF/((WCSAT-WCFC)*LSOIL)  !unit is mm/hr
         endif
 
@@ -1763,7 +2074,7 @@ contains
         !root water uptake.
         WUP=WDN
         dep=dep+DZ(i)
-        if (dep<DEPRT) then
+        if (dep<DEPRT .and. WC>WCWP) then
           AWC=0.25*AWC
           WDN=EPMAX/(1-exp(-ubw))*(1-exp(-ubw*dep/DEPRT))  !ubw: water uptake distribution parameter
           if (WC<AWC) then
@@ -1775,11 +2086,13 @@ contains
           SRT(i)=ZERO
         endif
         if (SRT(i)<CLOSEZERO) SRT(i)=ZERO
+        if (dep>ROOTMAX) exit !not exceed the root zone
       enddo
 
       if (DEPRT>dep) then !root possibly extends to saturated zone
         WDN=EPMAX
         SRT(n)=WDN-WUP
+
       endif
 
     end subroutine SetSS
@@ -1810,13 +2123,34 @@ contains
       h1=MAT_WC2H(j,wc1)
       var%h=h1
       var%phi=(h1-mat%HBUB)*mat%KSAT+mat%phie
+      var%S=1.
       wc=wc1
 
 
     end subroutine setsaturation
 
+    subroutine bottom_pressure(k,n,nu,dz, dzgw, depgw)
+      !set pressure head of the bottom cell
+      use parm, only: shallst, gw_spyld
+      implicit none
+      integer, intent(in)	::	k,n
+      real, intent(in)	::	dz(n)
 
-    subroutine searchgw(k,n,nu,dz,dzgw,h,depgw,wc)
+      real, intent(out)	::	dzgw
+      real, intent(inout)	::	depgw
+      integer, intent(inout)	::	nu
+
+      real :: depbot
+      depbot = sum(dz(1:nu))
+      depgw=SOLCOL(k)%DEPGWREF-shallst(k)/gw_spyld(k)
+      dzgw= depbot - depgw
+      if (depgw<0.0) then
+        call USTOP(' ')
+      endif
+    end subroutine
+
+
+    subroutine searchgw(k,n,nu,dz,dzgw,h,depgw)
       !search the lowest unsaturated node
       !set the saturated water content below groundwater table
       use parm, only: shallst, gw_spyld
@@ -1824,7 +2158,65 @@ contains
       integer, intent(in)	::	k,n
       real, intent(in)	::	dz(n)
 
-      real, intent(out)	::	dzgw,wc(n)
+      real, intent(out)	::	dzgw
+      real, intent(inout)	::	depgw
+      integer, intent(inout)	::	nu
+      real, intent(inout)	::	h(n)
+
+
+      real		::	dep, dep0, depbot
+      integer	::	i
+
+      !var%isat=0
+      depgw=SOLCOL(k)%DEPGWREF-shallst(k)/gw_spyld(k)
+      depbot = SOLCOL(k)%DEPBOT
+
+      if (depgw>depbot) then
+        !lower than the soil bottom
+        dzgw = depbot - depgw
+        nu = n
+        return
+      endif
+
+      dep=0.0
+      if (depgw < 0.0) then
+        !saturated
+        dzgw = depgw
+        nu = 0
+      else
+
+        do i=1, n
+          dep0 = dep
+          dep=dep+dz(i)
+          !var(i)%isat=0
+          if (depgw>dep0 .and. depgw<=dep) then
+            nu= i !- 1
+            !dep = dep - dz(i)
+            dzgw=dep - depgw
+            exit
+          endif
+
+        enddo
+      endif
+
+      !dep=dep-dz(nu)
+      do i=nu+1,n
+        !saturated zone
+        dep=dep+dz(i)
+        h(i)=dep-0.5*dz(i)-depgw	!hydraulic head at the center of a cell
+      enddo
+
+    end subroutine searchgw
+
+    subroutine searchgw0(k,n,nu,dz,dzgw,h,depgw)
+      !search the lowest unsaturated node, original version
+      !set the saturated water content below groundwater table
+      use parm, only: shallst, gw_spyld
+      implicit none
+      integer, intent(in)	::	k,n
+      real, intent(in)	::	dz(n)
+
+      real, intent(out)	::	dzgw
       real, intent(inout)	::	depgw
       integer, intent(inout)	::	nu
       real, intent(inout)	::	h(n)
@@ -1834,7 +2226,7 @@ contains
       integer	::	i
 
       !var%isat=0
-      depgw=SOLCOL(k)%DEPGW0-shallst(k)/gw_spyld(k)
+      depgw=SOLCOL(k)%DEPGWREF-shallst(k)/gw_spyld(k)
       nu=n+1; dep=0.0
       if (depgw < 0.0) then
         !saturated
@@ -1855,12 +2247,6 @@ contains
         enddo
       endif
 
-
-
-
-      !
-
-
       !dep=dep-dz(nu)
       do i=nu+1,n
         !saturated zone
@@ -1876,13 +2262,12 @@ contains
         !call USTOP('Groundwater table is below the bottom of the soil column or Fully Saturated Soil, exit the program')
         !nu=n
       endif
-    end subroutine searchgw
+    end subroutine searchgw0
 
-
-    subroutine discretize(IDIV,THICK1,THICK2,DifRto,NL,ZBOT,JTL,DZ,NZ,ILBNOD,jt,LAY1)
+    subroutine discretize(IDIV,THICK1,THICK2,DifRto,NL,ZBOT,JTL,DZ,NZ,ILBNOD,jt,LAY1,RZONE)
       implicit none
       integer, intent(in)	::	IDIV, NL,JTL(MAXLAY),LAY1
-      real, intent(in)		::	THICK1,THICK2, DifRto
+      real, intent(in)		::	THICK1,THICK2, DifRto,RZONE
       real, intent(inout)	::	ZBOT(0:NL),DZ(MAXNODE)
       integer, intent(out)::	NZ,ILBNOD(0:MAXLAY),jt(MAXNODE)
 
@@ -1907,22 +2292,22 @@ contains
 
 
       NZ=0
+      dep0=0.0
 
       do l=1, NL
 
         middle=0.5*(ZBOT(l-1)+ZBOT(l))
 
         if (l<=1+LAY1) then
-          if (THICK1>ZBOT(1)) then
-            call USTOP("The first layer starting thickness is larger than the layer thickness")
-          endif
-          dep0=0.0
           thick=THICK1
         else
           thick=THICK2
         endif
+!        if (thick>ZBOT(l)) then
+!          thick=ZBOT(l)-ZBOT(l-1)
+!        endif
 
-        if (l > 1) then
+        if (l > 1 .and. IDIV >2) then
           if (thick > 1.5 * DZ(NZ))  thick = 1.5 * DZ(NZ)
           if (thick < DZ(NZ) * 0.75)  thick = DZ(NZ)
         endif
@@ -1936,7 +2321,7 @@ contains
 
 
         do
-          if (thick>MaxLayThinck) then
+          if (thick>MaxLayThinck .and. IDIV >2) then
             !avoid a layer thinckness over maximum thickness
             lmax=floor((ZBOT(l)-ZBOT(l-1)-(dep0-ZBOT(l-1))*2)/MaxLayThinck)
             DZ(NZ+1:NZ+lmax) = MaxLayThinck
@@ -1992,6 +2377,9 @@ contains
 
         ILBNOD(l)=NZ
       enddo !layer: l
+
+
+
     end subroutine
 
 
@@ -2047,9 +2435,8 @@ contains
 
 
       !soil water storage
-      do l=1, nun
-        scol%WC(l) = MAT_MP2WC(scol%jt(l),scol%var(l)%phi)
-      enddo
+      scol%WC = MAT_S2WC(scol%jt,scol%var%S)
+
       call SOLCOL_Update_Storage(k)
 
 
@@ -2244,47 +2631,90 @@ contains
         wc=MAT_S2WC(imat,S)
         k=MAT_S2K(imat,S)
         phi=MAT_S2MP(imat,S)
-        write(IFMAT,"(I10,5F15.3)") imat,h,wc,S,k,phi
+        write(IFMAT,"(I10,5E15.7)") imat,h,wc,S,k,phi
         hh=hh+0.2
       enddo
 
 
     end subroutine
 
-    subroutine print_var(ifout, k, n, var, t, gw, wc, dx)
+    subroutine print_var(ifout, k, n, var, t, gw, wc, dx, q)
+      use parm, only: iida,iyr
       implicit none
       integer, intent(in)		::	ifout, k, n
       real, intent(in)		::	t, gw
       type(vars), intent(inout)	::	var(n)
-      real, optional, intent(in)		::	wc(n), dx(n)
+      real, optional, intent(in)		::	wc(n), dx(n), q(n)
 
       integer			::	i
+      real :: dep
 
-
-      write (ifout,"(A,I5,A,F10.0,A,F12.3)") "#Soil Profile: ", k," at Time: ",t,' with GWDep: ', gw
-      if (present(dx)) then
+      dep = 0.
+      write (ifout,"(A,I5,A,I4,A,I3,A,F12.3)") "#Soil Profile: ", k," at Year: ",iyr,' and day ' ,iida,' with GWDep: ', gw
+      if (present(q)) then
         !print header
-        write (ifout,"(3A10, 4A15)")  "HRU","time","isat","dx","pressure","moisture","hydraulicK"
+        if (t > -1) then
+          write (ifout,"(3A10, 6A15)")  "#      HRU","time","isat","depth","pressure","moisture","hydraulicK", "phi", "cumQ"
+        else
+          write (ifout,"(3A10, 6A15)")  "HRU",       "time","isat","depth","pressure","moisture","hydraulicK", "phi", "cumQ"
+        endif
         do i=1, n
-          write (ifout,"(I10,F10.0,I10,4E15.7)")  k,t,var(i)%isat, dx(i),var(i)%h,wc(i),var(i)%K
+          dep = dep + dx(i)
+          write (ifout,"(I10,F10.0,I10,6E15.7)")  k,t,var(i)%isat, dep - dx(i)*.5, var(i)%h,wc(i),var(i)%K,var(i)%phi,q(i)
+        enddo
+
+
+      elseif (present(dx)) then
+        !print header
+        if (t > -1) then
+          write (ifout,"(3A10, 5A15)")  "#      HRU","time","isat","depth","pressure","moisture","hydraulicK", "phi"
+        else
+          write (ifout,"(3A10, 5A15)")  "#HRU","time","isat","depth","pressure","moisture","hydraulicK", "phi"
+        endif
+        do i=1, n
+          dep = dep + dx(i)
+          write (ifout,"(I10,F10.0,I10,5E15.7)")  k,t,var(i)%isat, dep - dx(i)*.5, var(i)%h,wc(i),var(i)%K,var(i)%phi
         enddo
 
       elseif (present(wc)) then
 
-        write (ifout,"(3A10, 3A15)")  "HRU","time","isat","pressure","moisture","hydraulicK"
+        write (ifout,"(3A10, 4A15)")  "#      HRU","time","isat","pressure","moisture","hydraulicK", "phi"
         do i=1, n
-          write (ifout,"(I10,F10.0,I10,3E15.7)")  k,t,var(i)%isat,var(i)%h,wc(i),var(i)%K
+          dep = dep + dx(i)
+          write (ifout,"(I10,F10.0,I10,4E15.7)")  k,t,var(i)%isat,var(i)%h,wc(i),var(i)%K,var(i)%phi
         enddo
 
       else
 
-        write (ifout,"(3A10, 2A15)")  "HRU","time","isat","pressure","hydraulicK"
+        write (ifout,"(3A10, 3A15)")  "#      HRU","time","isat","pressure","hydraulicK", "phi"
         do i=1, n
-          write (ifout,"(I10,F10.0,I10,2E15.7)")  k,t,var(i)%isat,var(i)%h,var(i)%K
+          write (ifout,"(I10,F10.0,I10,3E15.7)")  k,t,var(i)%isat,var(i)%h,var(i)%K,var(i)%phi
         enddo
       endif
 
     end subroutine print_var
+
+
+    subroutine print_dis(ifout, k)
+      !use parm, only: iida,iyr
+      implicit none
+      integer, intent(in)		::	ifout, k
+
+
+      type(SOILCOLUMN), pointer 	::	scol
+
+      integer			::	i
+      real :: dep
+      scol => SOLCOL(k)
+      dep = 0.
+
+      do i=1, scol%NNOD
+        dep = dep + scol%DZ(i)
+        write (ifout,"(3I5,5(1PE15.7))")  k,i,scol%jt(i), scol%DZ(i),dep-scol%DZ(i)*.5,scol%var(i)%h,scol%WC(i),scol%var(i)%K
+      enddo
+
+
+    end subroutine print_dis
 
   end module
 
@@ -2448,7 +2878,7 @@ contains
       r1=scol%ZTOP
     endif
     !shallst and gw_spyld were read in readgw
-    scol%DEPGW0=(scol%ZTOP-r1)*1000.0+shallst(i)/gw_spyld(i)
+    scol%DEPGWREF=(scol%ZTOP-r1)*1000.0+shallst(i)/gw_spyld(i)
 
     call URDCOM(IFIN,slogfile,sLine)
     iLoc=1
@@ -2534,6 +2964,17 @@ contains
     do  l = 1+iLay1, NLAY
       call URWORD(sLine,iLoc,iStart,iStop,3,iTmp,ZBOT(l),slogfile,IFIN)    !
     enddo
+    r0 = ZBOT(NLAY - 1)
+    r1 = ZBOT(NLAY)
+    r2 = sol_z(sol_nly(k), k)
+    if (r0 < r2 .and. r1 > r2) then
+      NLAY = NLAY + 1
+      ZBOT(NLAY - 1) = r2
+      ZBOT(NLAY) = r1
+      jt_lay(NLAY) = jt_lay(NLAY-1)
+    endif
+
+    scol%DEPBOT = ZBOT(NLAY)
 
     !read the dep to be printed
     if (scol%IPRINT > 0) then
@@ -2570,8 +3011,14 @@ contains
 
     NNOD=0      !number of nodes
     ZBOT(0)=0.0
+    ZBOT((NLAY+1):)=0.
+    scol%DEPRZONE = sol_zmx(k)
 
-    call discretize(IDIV,ThickMin1,ThickMin2,DifRto,NLAY,ZBOT,jt_lay,DZ,NNOD,ILBNOD,jt,iLay1)
+#ifdef debugMODE
+    write(IFDEBUG, "(//,A,2I5, 10F10.3)") "# k, NLAY, ZBOT",k, NLAY, ZBOT(1:10)
+#endif
+
+    call discretize(IDIV,ThickMin1,ThickMin2,DifRto,NLAY,ZBOT,jt_lay,DZ,NNOD,ILBNOD,jt,iLay1,sol_zmx(k))
 
     !search for observation layers
     if (scol%IPRINT > 0) then
@@ -2610,19 +3057,28 @@ contains
     scol%DZ(1:NNOD)=DZ(1:NNOD)
     scol%QSUM=0.
 
+    NUNS=NNOD
 
-    !search the lowest unsaturated node
-    HEAD=ZERO
-    call searchgw(k,NNOD,NUNS,DZ(1:NNOD),dzgw,HEAD,scol%DEPGW,scol%WC)
-    !steady-state simulation
-    !DZ(NUNS)=DZ(NUNS)-dzgw
 
-    call solve_steady(NUNS,DZ,jt,HINI,dzgw,HEAD,qsteady,scol%WC)
+
+    call searchgw(k,NNOD,NUNS,DZ,dzgw,HEAD,scol%DEPGW)
+
+
+    !call bottom_pressure(k,NNOD,NUNS,DZ,dzgw,scol%DEPGW)
+
+
+    !call initial_state(NUNS,DZ,jt,HINI,dzgw,HEAD)
+
+    call solve_steady(NUNS,DZ,jt,HINI,dzgw,HEAD)
+    !call solve_steady_newton(NUNS,DZ,jt,HINI,dzgw,HEAD)
+
     !DZ(NUNS)=DZ(NUNS)+dzgw
-    call SOLCOL_Update_Node(k,1,NNOD,HEAD)
+    call SOLCOL_Update_Node_h(k,1,NNOD,HEAD)
+
+    call print_dis(IFDIS,k)
 
     if (scol%IPRINT == -1) then
-      call print_var(IFPROFILE,k,NNOD,scol%var,0.0,scol%DEPGW,scol%WC,DZ(1:NNOD))
+      call print_var(IFPROFILE,k,NUNS,scol%var,0.0,scol%DEPGW,scol%WC,DZ(1:NUNS),HEAD)
     endif
 
 #ifdef debugMODE
@@ -2778,6 +3234,8 @@ contains
     open(newunit=sfile,file='soil.mat')
     open(newunit=slogfile,file='soil.log')
 
+    STRFMT="(//,30('-'), A, I4, 30('-'))"
+
     call URDCOM(sfile,slogfile,sline)
 
     icol=1
@@ -2788,6 +3246,7 @@ contains
     allocate(SOLMAT(nmat))
 
     do i=1, nmat
+      write (slogfile, STRFMT) 'STARTING READING SOIL MATERIAL DATA ', i
       p=>SOLMAT(i)
       read(sfile,'(A)')	sline
       icol=1
@@ -2819,6 +3278,8 @@ contains
         p%WCAWC=p%WCFC-p%WCWP
       endif
 
+      write(slogfile, "(A,I4,A,F10.5)") "field capaty of material ", i, " is ", p%WCFC
+      write(slogfile, "(A,I4,A,F10.5)") "wilting point of material ", i, " is ", p%WCWP
 
       !output the material soil water characteristic curve
 
@@ -2847,11 +3308,14 @@ contains
     open(newunit=IFDEBUG,  file="solflw.info")
 
     open(newunit=IFBAL,    file="output.sol.bal")
-    write(IFBAL,"(A5,16A12)") "ihru","Time","GWDepth","Qnet","EpMax","Stor0","Stor1","Runoff", &
+    write(IFBAL,"(A5,16A12)") "ihru","Time","GWDep","Qnet","EpMax","Stor0","Stor1","Runoff", &
                               "Hpond","Infil","Esoil","SeepBot","LatIn","LatOut","Root","BalErr1","BalErr2"
 
     open(newunit=IFMAT,file="output.sol.mat")
     write(IFMAT,"(2A10,5A15)") "MAT","H","WC","S","K","PHI"
+
+    open(newunit=IFDIS,file="output.sol.dis")
+    write(IFDIS,"(3A5,5A15)") "hru","lay","mat","dz","dep","pressure","moisture","cond"
 
     iMAT=0
     !	WRITE(IFMAT,111)

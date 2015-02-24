@@ -46,7 +46,7 @@ subroutine TRS(k)
   !real :: qNETt(mstep)                   !prescribed potential net flux on the top,   mm/hr
   !real :: EPMAX(mstep)                   !irrigation plus rainfall (mm/hr)
 
-
+  real :: rchr  !recharge
   real :: qprec, qevap, QUB(mstep),sic,soc,src
   real     ::  dzgw, Frac_Impervious
   real, dimension(MAXNODE) :: DZ,FZN,qsum,sicum,socum,srcum,hh
@@ -73,11 +73,12 @@ subroutine TRS(k)
 
 !~~~~~~~~~~~~~~~start daily variables (not change in the sobroutine)~~~~~~~~~~~~~~~~~~~
 
+  rchrg(k) = ZERO
 
   scol=>SOLCOL(k)
   ntot=scol%NNOD
-
   NLAY=scol%NLAY
+  nun=ntot
 
   !QURBAN=zero
   !ESACT=zero
@@ -127,19 +128,28 @@ subroutine TRS(k)
   !search the lowest unsaturated node
   DZ(1:ntot)=scol%DZ(1:ntot)
 
+
+  call searchgw(k,ntot,nun,DZ,dzgw,hh,scol%DEPGW)
+
+  call SOLCOL_Update_Node_h(k,nun+1,ntot,hh((nun+1):ntot))
+
+  !call bottom_pressure(k,ntot,nun,DZ,dzgw,scol%DEPGW)
+
+
 #ifdef debugMODE
   !call print_var(IFPROFILE,nun,SOLCOL(k)%var,iyr+iida/1000.)
   !stop
 #endif
 
-  call searchgw(k,ntot,nun,DZ,dzgw,hh,scol%DEPGW,scol%WC)
-  if (nun>ntot) then
+
+
+  if (dzgw < 0.) then
     lowgw = .true.
     nun=ntot
   else
     lowgw = .false.
   endif
-  call SOLCOL_Update_Node(k,nun,ntot,hh)
+
 
 #ifdef debugMODE
   !call print_var(IFPROFILE,nun,SOLCOL(k)%var,iyr+iida/1000.)
@@ -147,7 +157,7 @@ subroutine TRS(k)
 #endif
   !update storage before soil water model
 
-  call SOLCOL_Update_Storage(k)
+  !call SOLCOL_Update_Storage(k)
   s0=sum(scol%WC(1:nun)*scol%DZ(1:nun))
 
   !~~~~~~~~~~~~~~~end daily variables (not change in the sobroutine)~~~~~~~~~~~~~~~~~~~
@@ -222,14 +232,6 @@ subroutine TRS(k)
   call FinalizeDayUN(k,nun,ntot,runoff,QUB,qsum,evap,sicum,socum,srcum)
 
   scol%QSUM=qsum(1:ntot)
-  s1=sum(scol%WC(1:nun)*scol%DZ(1:nun))
-  sic=sum(sicum)
-  soc=sum(socum)
-  src=sum(srcum)
-  write (IFBAL,'(I5,16((1PG12.4)))') k,tstep(mstep)/24.,scol%DEPGW,qNET,scol%EPMAX*24.,s0,s1, &
-                            sum(runoff),scol%HPOND,infil,evap,drn,sic,soc,src, &
-                            s0+infil-drn+sic-soc-src-s1, &
-                            rain-(s1-s0+scol%HPOND+drn+evap+soc+src-sic)
 
 #ifdef debugMODE
     !write (IFDEBUG,*) "drn"
@@ -238,8 +240,18 @@ subroutine TRS(k)
     !call print_var(IFPROFILE,nun,scol%var,iyr*1000.+iida,scol%WC)
   !stop
 #endif
+  if (scol%IPRINT <0 .and. scol%IPRINT >= -2) then
+    s1=sum(scol%WC(1:nun)*scol%DZ(1:nun))
+    sic=sum(sicum)
+    soc=sum(socum)
+    src=sum(srcum)
+    write (IFBAL,'(I5,16((F12.4)))') k,tstep(mstep)/24.,scol%DEPGW,qNET,scol%EPMAX*24.,s0,s1, &
+                              sum(runoff),scol%HPOND,infil,evap,drn,sic,soc,src, &
+                              s0+infil-drn+sic-soc-src-s1, &
+                              rain-(s1-s0+scol%HPOND+drn+evap+soc+src-sic)
+  endif
   if (scol%IPRINT == -1) then
-    call print_var(IFPROFILE,k,nun,scol%var,tstep(mstep)/24.,scol%DEPGW,scol%WC,DZ)
+    call print_var(IFPROFILE,k,nun,scol%var,tstep(mstep)/24.,shallst(k),scol%WC,DZ,qsum)
   elseif (scol%IPRINT > 0) then
     do j=1, scol%IPRINT
       iLAY = scol%OBLay(j)

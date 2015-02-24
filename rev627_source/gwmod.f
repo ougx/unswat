@@ -120,7 +120,7 @@
       !!-------------------OGXinSWAT Begin------------------------------
       !!  skip revapday calculation
       if (ievent==0) then
-  !! compute revap to soil profile/plant roots
+!! compute revap to soil profile/plant roots
         revapday = gw_revap(j) * pet_day
         if (shallst(j) < revapmn(j)) then
           revapday = 0.
