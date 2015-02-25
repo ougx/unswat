@@ -25,7 +25,7 @@ module ROSSMOD
   REAL,PARAMETER						 ::		ZERO=0.0e0,HALF=0.5e0,ONE=1.0e0,TWO=2.0e0
   REAL,PARAMETER						 ::		UnitU2S=36.0e0 !m/s to mm/hr, used for overland flow calculation
   REAL,PARAMETER						 ::		GRAVITY      = 9.80665
-  REAL,PARAMETER						 ::		hydrcmin      = 1.e-20 !minimum hydraulic conductivity
+  REAL,PARAMETER						 ::		hydrcmin      = 0.0 !minimum hydraulic conductivity
   !real,     save        ::  TEMPFAC   !temperature factor on K, K'=K*TEMPFAC, TEMPFAC=0.001, if temperature of soil layer < 0 C, otherwise TEMPFAC = 1.0
 
   real,parameter  ::   H10kPa    =-1000    !mm, 10 kPa field capacity, 0.1 bar
@@ -457,21 +457,23 @@ contains
     TYPE(SOILMAT),POINTER::p
     p=>SOLMAT(j); done=.false.
     hz=h-gf*dz ! gf is gravity fac in direction of dz
-    if (h<p%HBUB) then
-      a=p%lam*p%eta; x=-gf*dz/h
-      if (a<=3.0.or.x*(a-3.0)<=4.0) then ! use predetermined approx.
-        w=(60.0+x*(70.0+10.0*a+x*(16.0+a*(5.0+a))))/ &
-          (120.0+x*(120.0+x*(22.0+2.0*a**2)))
-        done=.true.
-      end if
-    end if
+!    if (h<p%HBUB) then
+!      a=p%lam*p%eta; x=-gf*dz/h
+!      if (a<=3.0.or.x*(a-3.0)<=4.0) then ! use predetermined approx.
+!        w=(60.0+x*(70.0+10.0*a+x*(16.0+a*(5.0+a))))/ &
+!          (120.0+x*(120.0+x*(22.0+2.0*a**2)))
+!        done=.true.
+!      end if
+!    end if
     if (.not.done) then
-      call hyofh(hz,j,Kz,Khz,phiz) ! accurate but slower
-      if (abs(Kz-K)<CLOSEZERO) then		!OGXinROSS
-        w=0.5
-      else
+      !call hyofh(hz,j,Kz,Khz,phiz) ! accurate but slower
+      phiz = MAT_H2MP(j,hz)
+      Kz = MAT_H2K(j,hz)
+      !if (abs(Kz-K)<0.0) then		!OGXinROSS
+        !w=0.5
+      !else
         w=-((phiz-phi)/(gf*dz)+K)/(Kz-K)
-      endif
+      !endif
     end if
     weight=min(max(w,zero),one)
   END FUNCTION weight
@@ -788,8 +790,8 @@ contains
       !if (debuGGing) write(*,*) aa
 
       !solve the matrix
-      !call tri(0,nn,aa,bb,cc,dd,ee,H)
-      call solve_tridiag(aa,bb,cc,dd,H,n)
+      call tri(0,nn,aa,bb,cc,dd,ee,H)
+      !call solve_tridiag(aa,bb,cc,dd,H,n)
 
       !check convergence
       convergence=.true.
@@ -1197,7 +1199,6 @@ contains
     !S=ZEROqya
 
     S    =var%S
-    var%K=MAT_S2K(jt,S)    !
 #ifdef debugMODE
     !write (IFDEBUG,*) 'S is:   ', S(1:n)
     !write (IFDEBUG,*) 'isat is:   ', var(1:n)%isat
@@ -1205,6 +1206,7 @@ contains
 #endif
 
     !where (S>=one) var%K=SOLMAT(jt)%KSAT
+    !var%K=MAT_S2K(jt,S)    !
 
     !----- end initialise
     !----- solve until tfin
@@ -1251,11 +1253,9 @@ contains
         if (iflux==1) call hyofS(S,n,jt,var) ! for layers where S<1
         ! phi is solution var at satn, so h calc from phi where S>=1
 
-        !where (S>=one)
-          !var%h=SOLMAT(jt)%HBUB+(var%phi-SOLMAT(jt)%phie)/SOLMAT(jt)%KSAT
-          !var%h=MAT_MP2H(jt,var%phi)
-          !var%K=SOLMAT(jt)%KSAT
-        !end where
+        where (var%isat == 1)
+          var%h=SOLMAT(jt)%HBUB+(var%phi-SOLMAT(jt)%phie)/SOLMAT(jt)%KSAT !OGX: used in the sat-unsat interface flow
+        end where
 
         var%K=var%K*fzn
         !----qya- get fluxes and derivs
@@ -1315,10 +1315,16 @@ contains
 
 !--------------------------------------------------------------------------------
         if (ns==1) then
+
           if (q(0)<qpme) then
             q(0)=qpme; qyb(0)=zero
           else
             limitET=.true.    !OGX: the q is "negatively" larger than the possible ET rate
+!            if (q(0)*qpme<0) then   !OGX: avoid infiltration when it's ET
+!              q(0) = 0
+!              qya(0) = 0
+!              qyb(0) = 0
+!            endif
           end if
         else
           qya(0)=p%KSAT*qya(0)
@@ -1676,13 +1682,40 @@ contains
 #ifdef debugMODE
             !check dy and q
             if (S(i)<0.001) then
-              write(IFDEBUG, "(//,3A5,9A12)") "hru", "lay", "isat","t","dt","S", "q0mm", "q1mm","qroot","qlat","dWCmm","dQmm"
+              write(IFDEBUG, "(//,3A5,15A12)") "hru", "lay", "isat","t","dt", &
+                "S", "dx(mm)","K(mm/hr)","phi", "h(mm)", "dQ/dS1","dQ/dS2", &
+                "q0_i(mm)", "q_i(mm)","qroot(mm)","qlat(mm)","dy","dy(mm)"
+              do j=i-1,i+1
+                r2 = (q(j)+  sig*(qya(j)*  dy(j)+  qyb(j)*  dy(j+1)))*dt
+                write(IFDEBUG, "(3I5,15(1PE12.4))") &
+                  k,j,var(j)%isat,t/24.,dt, &
+                  S(j), dx(j),var(j)%K,var(j)%phi,var(j)%h,qya(j),qyb(j), &
+                  q(j)*dt, &
+                  r2, &
+                  srt(j)*dt,slo(j)*dt, &
+                  dy(j), dy(j)*SOLMAT(jt(j))%WCSR*dx(j)
+              enddo
               r1 = (q(i-1)+sig*(qya(i-1)*dy(i-1)+qyb(i-1)*dy(i)))*dt
               r2 = (q(i)+  sig*(qya(i)*  dy(i)+  qyb(i)*  dy(i+1)))*dt
-              r3 = r1-r2
-              write(IFDEBUG, "(3I5,9(1PE12.4))") k,i,var(i)%isat,t/24.,dt,S(i),r1,r2, &
-                    srt(i)*dt,slo(i)*dt,MAT_S2WC(jt(i),dy(i))*dx(i),r3
+              r3 = r1-r2-srt(j)*dt-slo(j)*dt
+              r1 = (MAT_S2WC(jt(i),S(i)+dy(i))-MAT_S2WC(jt(i),S(i)))  *dx(i)
+              r2 = r3
+              r3 = r1 - r2
+              write(IFDEBUG, "(A,3(1PE12.4))") "DWC_mm,Qnet_mm,Err_mm", r1,r2,r3
+              write(IFDEBUG, "(A,4(1PE12.4))") "WC0,WC1,WCSR,WCR     ", &
+                MAT_S2WC(jt(i),S(i)+dy(i)),MAT_S2WC(jt(i),S(i)),SOLMAT(jt(j))%WCSR,SOLMAT(jt(j))%WCR
+              r1=weight(jt(i),var(i)%h,var(i)%K,var(i)%phi,dz(i-1))
+              r2=(var(i-1)%phi-var(i)%phi)/dz(i-1)
+              r3= var(i-1)%K*r1 + (1-r1)*var(i)%K
+              write(IFDEBUG, "(A,5(1PE12.4))") "w, (phi1-phi0)/dz, K, q0, K(h0-h1)/dz + K", r1, r2, r3, r2+r3, &
+                r3*(var(i-1)%h-var(i)%h)/dz(i-1) + r3
+              r1=weight(jt(i+1),var(i+1)%h,var(i+1)%K,var(i+1)%phi,dz(i))
+              r2=(var(i)%phi-var(i+1)%phi)/dz(i)
+              r3= var(i)%K*r1 + (1-r1)*var(i+1)%K
+              write(IFDEBUG, "(A,5(1PE12.4))") "w, (phi1-phi0)/dz, K, q1, K(h0-h1)/dz + K", r1, r2, r3, r2+r3, &
+                r3*(var(i)%h-var(i+1)%h)/dz(i) + r3
             endif
+
 #endif
             j=jt(i); p=>SOLMAT(j); v=>var(i)
             if (v%isat==0) then
@@ -1707,6 +1740,7 @@ contains
         end do
         if (dt<dtmin .and. .not. pondmove .and. itmp>10) then
 #ifdef debugMODE
+          write(IFDEBUG,*)
           write(IFDEBUG,*) "At HRU = ", k
           write(IFDEBUG,*) "solve: time step = ",dt," is smaller than user defined"
           write(IFDEBUG,*) "t, dt, ts, tfin", t, dt, ts, tfin
@@ -1717,12 +1751,13 @@ contains
           write(IFDEBUG,*) "The 24h precipitation rate is", qprec
           call print_var(IFPROFILE,k,n,var,t/24.,shallst(k),S*SOLMAT(jt)%WCSR,dx,qsum)
 
-          write (IFDEBUG,"(3A10, 7A15)")  "HRU","time","isat","dx","pressure","moisture","hydraulicK", "phi", "SRoot","SLat"
+          write (IFDEBUG,"(//,3A10, 8A15)")  "HRU","time","isat","dx","pressure","moisture","saturation","hydraulicK", "phi", "SRoot","SLat"
           do i=1, n
             j=jt(i)
-            write (IFDEBUG,"(I10,F10.0,I10,7E15.7)")  k,t/24.,var(i)%isat,dx(i), &
+            write (IFDEBUG,"(I10,F10.0,I10,8E15.7)")  k,t/24.,var(i)%isat,dx(i), &
                                                           MAT_S2H(j,S(i)), &
                                                           MAT_S2WC(j,S(i)), &
+                                                          S(i), &
                                                           MAT_S2K(j,S(i)), &
                                                           var(i)%phi, &
                                                           srt(i), &
@@ -3308,7 +3343,7 @@ contains
     open(newunit=IFDEBUG,  file="solflw.info")
 
     open(newunit=IFBAL,    file="output.sol.bal")
-    write(IFBAL,"(A5,16A12)") "ihru","Time","GWDep","Qnet","EpMax","Stor0","Stor1","Runoff", &
+    write(IFBAL,"(A5,17A12)") "ihru","Time","GWDep","Hbot","Qnet","EpMax","Stor0","Stor1","Runoff", &
                               "Hpond","Infil","Esoil","SeepBot","LatIn","LatOut","Root","BalErr1","BalErr2"
 
     open(newunit=IFMAT,file="output.sol.mat")

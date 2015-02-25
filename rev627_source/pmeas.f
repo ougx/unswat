@@ -1,11 +1,11 @@
       subroutine pmeas
-      
+
 !!    ~ ~ ~ PURPOSE ~ ~ ~
-!!    this subroutine reads in precipitation data and assigns it to the 
+!!    this subroutine reads in precipitation data and assigns it to the
 !!    proper subbasins
 
 !!    ~ ~ ~ INCOMING VARIABLES ~ ~ ~
-!!    name        |units         |definition  
+!!    name        |units         |definition
 !!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !!    hru_sub(:)  |none          |number of subbasin in which HRU is located
 !!    i           |julian date   |current day of simulation
@@ -18,7 +18,7 @@
 !!                               |  daily routing
 !!                               |3 sub-daily rainfall/Green&Ampt/hourly routing
 !!    ifirstpcp(:)|none          |precipitation data search code
-!!                               |0 first day of precipitation data located in 
+!!                               |0 first day of precipitation data located in
 !!                               |  file
 !!                               |1 first day of precipitation data not located
 !!                               |  in file
@@ -38,11 +38,11 @@
 !!    name        |units         |definition
 !!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !!    ifirstpcp(:)|none          |precipitation data search code
-!!                               |0 first day of precipitation data located in 
+!!                               |0 first day of precipitation data located in
 !!                               |  file
 !!                               |1 first day of precipitation data not located
 !!                               |  in file
-!!    rainsub(:,:)|mm H2O        |precipitation for the time step during the 
+!!    rainsub(:,:)|mm H2O        |precipitation for the time step during the
 !!                               |day in HRU
 !!    subp(:)     |mm H2O        |precipitation for the day in HRU
 !!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -66,7 +66,7 @@
 !!    kk1         |none          |gage code for first dataset in weather file
 !!    kk2         |none          |gage code for last dataset in weather file
 !!    l           |none          |counter
-!!    rainsb(:,:) |mm H2O        |precipitation falling in time increment 
+!!    rainsb(:,:) |mm H2O        |precipitation falling in time increment
 !!                               |defined by IDT
 !!    rbsb        |mm H2O        |generated precipitation for subbasin
 !!    rmeas(:)    |mm H2O        |precipitation read in from file
@@ -92,7 +92,7 @@
 !        allocate (hrmeas(mrg,25))
 !       allocate (rhrbsb(24))
       end if
-      
+
       inum3sprev = 0
 
       !! initialize variables for the day
@@ -101,11 +101,11 @@
         rainsb = 0.
 !       hrmeas = 0.
       end if
-      
+
 
       select case (ievent)
          case (0, 1)                       !!daily rainfall
-    
+
           !! read precipitation data from files
           do k = 1, nrgage
             !! calculate gage id codes for first and last dataset in file
@@ -134,7 +134,7 @@
           end do
 
           !! assign precipitation data to HRUsoutput.std
-          
+
           inum3sprev = 0
           do k = 1, nhru
             subp(k) = rmeas(irgage(hru_sub(k)))
@@ -163,7 +163,8 @@
                 end if
               end if
             else
-              if (ievent == 1 .and. subp(k) >= 0.01) call pgenhr(k)
+              !if (ievent == 1 .and. subp(k) >= 0.01) call pgenhr(k)   !test the
+              if (ievent == 1 .and. subp(k) >= 0.01) call pgenhr_pulse(k)   !test the impact of precipitation intensity on runoff generation
             end if
           end do
 
@@ -191,7 +192,7 @@
                   ihour = 0
                   imin = 0
                   a = ""
-                  read (100+k,5200) iyp, idap, ihour, imin,             
+                  read (100+k,5200) iyp, idap, ihour, imin,
      &                                      (rainsb(l,ii), l = kk1, kk2)
 				   if (iyp /= iyr .or. idap /= i) flag = 1
                   if (flag == 1) then
@@ -222,7 +223,7 @@
               do
                 iyp = 0
                 idap = 0
-                read (100+k,5202) iyp, idap, ihour, a, imin,            
+                read (100+k,5202) iyp, idap, ihour, a, imin,
      &                                       (rainsb(l,1), l = kk1, kk2)
                 if (iyp == iyr .and. idap == i) flag = 1
                 if (flag == 1) then
@@ -237,7 +238,7 @@
                     do ii = 2, nstep
                       ihour = 0
                       imin = 0
-                      read (100+k,5200) iyp, idap, ihour, imin,         
+                      read (100+k,5200) iyp, idap, ihour, imin,
      &                                      (rainsb(l,ii), l = kk1, kk2)
                       do l = kk1, kk2
                         if (rainsb(l,1)<-97) then
@@ -262,7 +263,7 @@
           end do
 
           !! assign precipitation data to HRUs
-          !! missing precipitation data cannot be generated for 
+          !! missing precipitation data cannot be generated for
           !! sub-daily simulation
           do k = 1, nhru
             subp(k) = rmeas(irgage(hru_sub(k)))
@@ -308,6 +309,6 @@
  5201 format (i4,i3,5x,300f5.1)
  5202 format (i4,i3,i2,a1,i2,300f6.2)
  5300 format (9x,a1)
- 5400 format (10x,"ERROR: Precipitation data dates do not match for",   
+ 5400 format (10x,"ERROR: Precipitation data dates do not match for",
      &       " simulation year: ",i4," and julian date: ",i3)
       end

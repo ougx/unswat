@@ -48,7 +48,7 @@ subroutine TRS(k)
 
   real :: rchr  !recharge
   real :: qprec, qevap, QUB(mstep),sic,soc,src
-  real     ::  dzgw, Frac_Impervious
+  real     ::  dzgw, Frac_Impervious, hbot
   real, dimension(MAXNODE) :: DZ,FZN,qsum,sicum,socum,srcum,hh
   integer, dimension(MAXNODE) :: jt
 !%%%%%%%%%%%%%%%%%%%%%%% outgoings
@@ -186,8 +186,12 @@ subroutine TRS(k)
 #endif
   qevap=scol%ESMAX            			!potential soil evaporation ,  mm/hr
   !print *, precipday,sum(precipdt)
+
   do iStep=1, mstep
     qprec=scol%RAIN(iSTEP)*(ONE-Frac_Impervious)+scol%IRRI(iSTEP)+scol%RUNON(iStep)    !mm/hr
+
+    !update groundwater level every hour
+    hbot = dzgw + drn/gw_spyld(k)
 
     if (iurban(k)>0) then
       !runoff from impervious area with initial abstraction
@@ -199,7 +203,7 @@ subroutine TRS(k)
     endif
     qNET=qNET+(qprec-qevap)*(tstep(iSTEP)-tstep(iSTEP-1))
     rain=rain+qprec*(tstep(iSTEP)-tstep(iSTEP-1))
-    call solve(k,tstep(iSTEP-1),tstep(iSTEP),qprec,qevap,nun,DZ,jt,scol%hqmin,HMIN,dzgw,scol%HPOND,scol%Kdn,scol%Kup,scol%var, &
+    call solve(k,tstep(iSTEP-1),tstep(iSTEP),qprec,qevap,nun,DZ,jt,scol%hqmin,HMIN,hbot,scol%HPOND,scol%Kdn,scol%Kup,scol%var, &
                 FZN,scol%POV,FiveThd,evap,runoff(iStep),infil,drn,qsum,sicum,socum,srcum, &
                 scol%dtmin,scol%dtmax,scol%dSmax,scol%dSmaxr,scol%dSfac,scol%dpmaxr,lowgw)
   enddo
@@ -245,13 +249,13 @@ subroutine TRS(k)
     sic=sum(sicum)
     soc=sum(socum)
     src=sum(srcum)
-    write (IFBAL,'(I5,16((F12.4)))') k,tstep(mstep)/24.,scol%DEPGW,qNET,scol%EPMAX*24.,s0,s1, &
+    write (IFBAL,'(I5,17((F12.4)))') k,tstep(mstep)/24.,scol%DEPGW,dzgw,qNET,scol%EPMAX*24.,s0,s1, &
                               sum(runoff),scol%HPOND,infil,evap,drn,sic,soc,src, &
                               s0+infil-drn+sic-soc-src-s1, &
                               rain-(s1-s0+scol%HPOND+drn+evap+soc+src-sic)
   endif
   if (scol%IPRINT == -1) then
-    call print_var(IFPROFILE,k,nun,scol%var,tstep(mstep)/24.,shallst(k),scol%WC,DZ,qsum)
+    call print_var(IFPROFILE,k,nun,scol%var,tstep(mstep)/24.,scol%DEPGW,scol%WC,DZ,qsum)
   elseif (scol%IPRINT > 0) then
     do j=1, scol%IPRINT
       iLAY = scol%OBLay(j)

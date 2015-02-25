@@ -1782,7 +1782,7 @@
       !!-------------------OGXinSWAT Begin------------------------------
       !!  allocate soil columns
       if (ievent>0) then
-        print *, "Start SOIL_ALL"
+        print *, "Starting UN-SWAT Run"
         call SOIL_ALL
       endif
       !!---------------OGXinSWAT Ebd------------------------------
