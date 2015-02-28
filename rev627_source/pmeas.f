@@ -164,7 +164,7 @@
               end if
             else
               !if (ievent == 1 .and. subp(k) >= 0.01) call pgenhr(k)   !test the
-              if (ievent == 1 .and. subp(k) >= 0.01) call pgenhr_pulse(k)   !test the impact of precipitation intensity on runoff generation
+              if (ievent==1 .and. subp(k) >= 0.01) call pgenhr_pulse(k)   !test the impact of precipitation intensity on runoff generation
             end if
           end do
 

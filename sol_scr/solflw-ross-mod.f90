@@ -34,7 +34,7 @@ module ROSSMOD
   !real, parameter :: FifBar= -152957.43, ThirdBar = -339.9054				 !used to calculate the field capacity and wilting point
   real,parameter	::	 FiveThd			= 5.e0/3.e0		!five third, used in overland calculation
   real,parameter  ::   CLOSEZERO   =1.0e-5
-  real,parameter  ::   gf=1.0
+  real,parameter  ::   gf=1.0e0
   real,parameter  ::   h0min=-0.02				!min (negative) value for surface pond when it empties.
   real,parameter  ::   dh0max=0.01  			!min (negative) value for surface pond when it empties.
   real,parameter  ::   Smax=1.001					!max value for layer saturation to allow some overshoot.
@@ -140,6 +140,7 @@ module ROSSMOD
     !real     						::  DTMAX     		!maximum time step length (hr)
     !integer             ::  ITERMAX   		!maximum iteration
     real     						::	hqmin		      !mm, minimum ponding depth to generate surface runoff
+    real     						::	qrcss		      !mm, minimum v
 
 
 
@@ -368,8 +369,8 @@ contains
     endif
   end function
 
-  elemental real function MAT_H2Kh(IMAT,H, K, S)
-    real, intent(in) 								:: 		H, K, S
+  elemental real function MAT_H2Kh(IMAT,H, K)
+    real, intent(in) 								:: 		H, K
     integer, intent(in) 						::		IMAT
     real r1, r2
     if (H>=SOLMAT(IMAT)%HBUB) then
@@ -389,10 +390,10 @@ contains
     integer, intent(in) 						::		IMAT
     if (MP<0) then
       MAT_MP2S=-1.
-    elseif (MP>=SOLMAT(IMAT)%PHIE) then
-      MAT_MP2S=1.0
-    else
+    elseif (MP<SOLMAT(IMAT)%PHIE) then
       MAT_MP2S=(MP/SOLMAT(IMAT)%PHIE)**(1/(SOLMAT(IMAT)%ETA-1/SOLMAT(IMAT)%LAM))
+    else
+      MAT_MP2S=1.0
     endif
   end function
 
@@ -440,6 +441,16 @@ contains
     endif
   end function
 
+  function internodalK(K1,K2,DX1,DX2)
+    real :: internodalK
+    real, intent(in) :: K1,K2,DX1,DX2
+    real K, DZ
+    DZ = DX1 + DX2
+
+    internodalK = K1**(DX1/DZ) * K2**(DX2/DZ)
+    !internodalK = (K1*DX1+K2*DX2)/DZ
+  end function
+
   FUNCTION weight(j,h,K,phi,dz)
     IMPLICIT NONE
     INTEGER,INTENT(IN)::j
@@ -469,11 +480,11 @@ contains
       !call hyofh(hz,j,Kz,Khz,phiz) ! accurate but slower
       phiz = MAT_H2MP(j,hz)
       Kz = MAT_H2K(j,hz)
-      !if (abs(Kz-K)<0.0) then		!OGXinROSS
-        !w=0.5
-      !else
+      if (Kz == K) then		!OGXinROSS
+        w=0.5
+      else
         w=-((phiz-phi)/(gf*dz)+K)/(Kz-K)
-      !endif
+      endif
     end if
     weight=min(max(w,zero),one)
   END FUNCTION weight
@@ -669,8 +680,20 @@ contains
   !		SOLCOL_WATER_MASS=WCCOL
   !		return
   !	end function
+  subroutine initial_uniform(nn,dx,jt,htop,hbot,hh)
+    IMPLICIT NONE
+    !integer, parameter :: nn=10
+    INTEGER,INTENT(IN)::nn
+    INTEGER,INTENT(IN)::jt(nn)
+    REAL,INTENT(IN):: dx(nn),htop,hbot
+    REAL,INTENT(INOUT)::hh(nn)
 
-  subroutine initial_state(nn,dx,jt,htop,hbot,hh)
+
+    hh=htop
+    return
+  end subroutine
+
+  subroutine initial_linear(nn,dx,jt,htop,hbot,hh)
     IMPLICIT NONE
     !integer, parameter :: nn=10
     INTEGER,INTENT(IN)::nn
@@ -700,7 +723,7 @@ contains
     return
   end subroutine
 
-  SUBROUTINE solve_steady(nn,dx,jt,htop,hbot,hh)
+  SUBROUTINE initial_steady(nn,dx,jt,htop,hbot,hh)
 
     IMPLICIT NONE
     !integer, parameter :: nn=10
@@ -712,7 +735,7 @@ contains
 
     LOGICAL :: convergence
     INTEGER::i, iTER
-    REAL,DIMENSION(nn+1)::K,H,Htmp,dz
+    REAL,DIMENSION(nn+1)::K,H,Htmp,dz,dxx
     REAL,DIMENSION(nn+1)::aa,bb,cc,dd,ee
 
     REAL  :: khalf1,khalf2,TolH
@@ -725,6 +748,8 @@ contains
     dz=ZERO
     dz(1:(nn-1))=HALF*(dx(1:(nn-1))+dx(2:nn))
     dz(nn)=HALF*dx(nn)
+    dxx(1:nn) = dx
+    dxx(nn+1) = dx(nn) * 0.5
 
     aa=zero
     bb=zero
@@ -769,14 +794,14 @@ contains
 
       i=1
 
-      khalf2=half*(k(i+1)+k(i))
+      khalf2=internodalK(k(i),k(i+1),dxx(i),dxx(i+1))
       r2=khalf2/dz(i)
 
 
       do i=2, nn
         r1=r2
         khalf1=khalf2
-        khalf2=half*(k(i+1)+k(i))
+        khalf2=internodalK(k(i),k(i+1),dxx(i),dxx(i+1))
         r2=khalf2/dz(i)
 
         aa(i)= -r1
@@ -810,13 +835,12 @@ contains
     enddo   !iteration loop: iTER
 
     if (.not. convergence) then
-#ifdef debugMODE
       !write (*,*) 'solve_steady: Reach the maximum iteration number, steady state solution not archived'
       !write (*,*) 'solve_steady: The initial value will be set as the average of the last two iteration.'
       write (IFDEBUG,"(A)") '# solve_steady: Reach the maximum iteration number, steady state solution not archived'
       !write (IFDEBUG,"(A)") 'solve_steady: The initial value will be set as the average of the last two iteration.'
-#endif
-      H=0.5*(H+Htmp)
+      !call initial_linear(nn,dx,jt,htop,hbot,H(1:nn))
+      H = 0.5*(H+HTMP)
     endif
     !output
     !qflux=khalf1*((H(nn-1)-H(nn))/dz(nn-1)+1)
@@ -830,9 +854,9 @@ contains
 #endif
 
 
-  end subroutine solve_steady
+  end subroutine
 
-  SUBROUTINE solve_steady_newton(nn,dx,jt,htop,hbot,hh)
+  SUBROUTINE initial_newton(nn,dx,jt,htop,hbot,hh)
 
     IMPLICIT NONE
     !integer, parameter :: nn=10
@@ -844,8 +868,8 @@ contains
 
     LOGICAL :: convergence
     INTEGER::i, iTER
-    REAL,DIMENSION(nn+1)::K,H,Htmp,dz,delh,Kh
-    REAL,DIMENSION(nn+1)::aa,bb,cc,dd,ff
+    REAL,DIMENSION(nn+1)::K,H,Htmp,dz,delh,Kh,dxx
+    REAL,DIMENSION(nn+1)::aa,bb,cc,ee,ff
 
     REAL  :: khalf1,khalf2,TolH,grad1,grad2
     real  :: k1h1,k1h2,k2h1,k2h2
@@ -854,16 +878,18 @@ contains
 
 
     n=nn+1
-    TolH=0.01
+    TolH=1
     delh=ZERO
     dz=ZERO
     dz(1:(nn-1))=HALF*(dx(1:(nn-1))+dx(2:nn))
     dz(nn)=HALF*dx(nn)
+    dxx(1:nn) = dx
+    dxx(nn+1) = dx(nn) * 0.5
 
     aa=zero
     bb=zero
     cc=zero
-    dd=zero
+    ff=zero
     !initial guess: linear distribution
     !parameters
     r1=(htop-hbot)/sum(dz)
@@ -883,9 +909,9 @@ contains
     bb(i)=one
     cc(i)=zero
     ff(i)=zero
-    S =     MAT_H2S(jt(i), H(i))
-    K(i)=   MAT_S2K(jt(i),S)
-    Kh(i) = MAT_H2Kh(jt(i),H(i),K(i),S)
+
+    K(i)=   MAT_H2K(jt(i),H(i))
+    Kh(i) = MAT_H2Kh(jt(i),H(i),K(i))
 
     !bottom boundary
     i=n
@@ -893,9 +919,9 @@ contains
     bb(i)=one
     aa(i)=zero
     ff(i)=hbot    !top of the saturated zone (top of capilary zone)
-    S =     MAT_H2S(jt(i-1),H(i))
-    K(i)=   MAT_S2K(jt(i-1),S)
-    Kh(i) = MAT_H2Kh(jt(i-1),H(i),K(i),S)
+
+    K(i)=   MAT_H2K(jt(i-1),H(i))
+    Kh(i) = MAT_H2Kh(jt(i-1),H(i),K(i))
 
 
     do iTER=1,3000
@@ -904,16 +930,15 @@ contains
 
       !calculate parameters
       do i=2, nn
-        S =     MAT_H2S(jt(i), H(i))
-        K(i)=   MAT_S2K(jt(i),S)
-        Kh(i) = MAT_H2Kh(jt(i),H(i),K(i),S)
+        K(i)=   MAT_H2K(jt(i),H(i))
+        Kh(i) = MAT_H2Kh(jt(i),H(i),K(i))
       enddo
 
       !if (debuGGing) write(*,*) K
       !GENERATE TERMS OF MATRIX EQUATION
       i=1
 
-      khalf2=half*(k(i+1)+k(i))
+      khalf2=internodalK(k(i),k(i+1),dxx(i),dxx(i+1))
       r2=khalf2/dz(i)
       grad2 = (H(i)-H(i+1))/dz(i) + 1
 
@@ -927,7 +952,7 @@ contains
         k1h1=k2h1
         k1h2=k2h2
 
-        khalf2=half*(k(i+1)+k(i))
+        khalf2=internodalK(k(i),k(i+1),dxx(i),dxx(i+1))
         r2=khalf2/dz(i)
         grad2 = (H(i)-H(i+1))/dz(i) + 1
 
@@ -946,8 +971,8 @@ contains
       !if (debuGGing) write(*,*) aa
 
       !solve the matrix
-      !call tri(0,nn-1,aa,bb,cc,dd,ff,delh)
-      call solve_tridiag(aa,bb,cc,ff,delh,nn)
+      call tri(0,nn,aa,bb,cc,ff,ee,delh)
+      !call solve_tridiag(aa,bb,cc,ff,delh,nn)
 
       !check convergence
       convergence=.true.
@@ -968,10 +993,9 @@ contains
 #ifdef debugMODE
       !write (*,*) 'solve_steady: Reach the maximum iteration number, steady state solution not archived'
       !write (*,*) 'solve_steady: The initial value will be set as the average of the last two iteration.'
-      write (IFDEBUG,*) 'solve_steady: Reach the maximum iteration number, steady state solution not archived'
-      write (IFDEBUG,*) 'solve_steady: The initial value will be set as the average of the last two iteration.'
+      write (IFDEBUG,"(A)") 'solve_steady: Reach the maximum iteration number, steady state solution not archived'
+      write (IFDEBUG,"(A)") 'solve_steady: The initial value will be set as the average of the last two iteration.'
 #endif
-      H=0.5*(H+Htmp)
     endif
     !output
     !qflux=khalf1*((H(nn-1)-H(nn))/dz(nn-1)+1)
@@ -1101,8 +1125,8 @@ contains
     LOGICAL again,getq0,getqn,init,initpond,nexthour,pondmove,pond
     INTEGER::i,iflux,ih0,iok,itmp,j,ns,nsat,nsatlast,msteps0,it,msteps
     REAL::accel,dmax,dt,dwinfil,dwoff,fac,infili,KhETmin1,Kmin1,phimin1,phip, &
-      qpme,qprec1,rsig,rsigdt,sig,t,ti,win
-    real:: snlmm
+      qpme,qprec1,rsig,rsigdt,sig,t,ti,win,et
+    real:: snlmm,qrcss
     real:: prectot,str0,str1,roff,rlat
     REAL,DIMENSION(1)::Sbot
     REAL,DIMENSION(n-1)::dz
@@ -1144,6 +1168,7 @@ contains
     facc=0
 #endif
     snlmm=snl
+    qrcss = SOLCOL(k)%qrcss
     j=jt(1); p=>SOLMAT(j)
     phip=max(p%phie-p%HBUB*p%KSAT,1.00001*p%phie) ! phi at h=0
     S0=MAT_H2S(j, hETmin)
@@ -1319,19 +1344,22 @@ contains
           if (q(0)<qpme) then
             q(0)=qpme; qyb(0)=zero
           else
-            limitET=.true.    !OGX: the q is "negatively" larger than the possible ET rate
-!            if (q(0)*qpme<0) then   !OGX: avoid infiltration when it's ET
-!              q(0) = 0
-!              qya(0) = 0
-!              qyb(0) = 0
-!            endif
+            if (qpme<ZERO) then
+              limitET=.true.    !OGX: the q is "negatively" larger than the possible ET rate
+              if (q(0)>ZERO) then
+               !OGX: avoid infiltration when it's ET
+                q(0) = 0
+                qya(0) = 0
+                qyb(0) = 0
+              endif
+            endif
           end if
         else
           qya(0)=p%KSAT*qya(0)
           pond= .true.
           if (h0>=hqmin) then
             qov=snlmm*h0**kappa
-            qhov=kappa*snlmm*h0**(kappa-1.0)
+            qhov=kappa*qov/h0 !kappa*snlmm*h0**(kappa-1.0)
           end if
         end if
 !--------------------------------------------------------------------------------
@@ -1343,11 +1371,11 @@ contains
 !          else
 !            if (qpme<zero) then
 !              limitET=.true.    !OGX: the q is "negatively" larger than the possible ET rate
-!            else
+!            !else
 !              !OGX: initial ponding occurs
 !              !OGX: the top boundary is set as hqmin
 !              !OGX: the rest of infiltration will become runoff
-!              initpond= .true.
+!              !initpond= .true.
 !            endif
 !          endif
 !
@@ -1565,17 +1593,17 @@ contains
               !                ! start of runoff
               !                fac=(h0max+half*dh0max-h0)/dy(0); iok=0
               !              end if
-              if (iok==1.and.ns<1.and.h0<hqmin.and.h0+dy(0)>hqmin+dh0max) then
-
-                fac=(hqmin+half*dh0max-h0)/dy(0); iok=0
-#ifdef debugMODE
-                  facc(5) = fac
-#endif
-
-              end if
+!              if (iok==1.and.ns<1.and.h0<hqmin.and.h0+dy(0)>hqmin+dh0max) then
+!
+!                fac=(hqmin+half*dh0max-h0)/dy(0); iok=0
+!#ifdef debugMODE
+!                  facc(5) = fac
+!#endif
+!
+!              end if
 
               if (iok==1.and.ns<1) then
-                if (h0<hqmin.and.h0+dy(0)>hqmin+dh0max) then            ! start of runoff
+                if (h0<hqmin.and.h0+dy(0)>hqmin+dh0max) then            ! start runoff
                   fac=(hqmin+half*dh0max-h0)/dy(0); iok=0
 #ifdef debugMODE
                   facc(6) = fac
@@ -1595,6 +1623,8 @@ contains
                   facc(8) = fac
 #endif
 
+                elseif (h0>hqmin .and. qov+sig*qhov*dy(0) < ZERO) then    ! avoid fast recesssion
+                  fac=min(rsig*(qrcss-qov)/dy(0)/qhov, .99); iok=0
                 end if
               end if
               if (iok==0) then ! reduce time step
@@ -1628,8 +1658,11 @@ contains
             if (ns<1) then
               ! note that fluxes required are q at sigma of time step
               dwinfil=(q(0)+sig*(qya(0)*dy(0)+qyb(0)*dy(1)))*dt
-
-              runoff = runoff + qpme*dt - dwinfil - max(dy(0),-h0)
+#ifdef debugMODE
+              !write(IFDEBUG, "('qpme*dt, dwinfil, h0, dh0, qov, sig, qhov, dt', 8F15.7)") &
+              !qpme*dt, dwinfil, h0, dy(0), qov, sig, qhov, dt
+#endif
+              runoff = runoff + dt*(qov+sig*qhov*dy(0))
 
               h0=h0+dy(0)
               if (h0<zero.and.dy(0)<zero) ih0=1 ! pond gone0
@@ -1642,23 +1675,26 @@ contains
             end if
 
             if (limitET) then
-              evap=evap+qprec*dt-dwinfil
+              et = qprec*dt-dwinfil
+              if (et > ZERO) then
+                evap=evap+qprec*dt-dwinfil
+              else
+                !the water comes from layer 1 itself
+                S(1) = S(1) + et / dx(1) / SOLMAT(jt(1))%WCSR
+              endif
+#ifdef debugMODE
+              !examine if there is negative ET (infilrtation) in very dry condition
+              if(evap<0) then
+                write (IFDEBUG,"(A,F15.5)") "NEGATIVE ET, et",qprec*dt-dwinfil
+                write (IFDEBUG,"(A,F15.5)") "NEGATIVE ET, qpme",qpme
+                write (IFDEBUG,"(A,3F15.5)") "H of top 3 layer:",MAT_S2H(jt(1:3),S(1:3))
+                write (IFDEBUG,"(A,3F15.5)") "dx of top 3 layer:",dx(1:3)
+                write (IFDEBUG,"(A,4F15.5)") "q of top 3 layer:",q(0:3)
+              endif
+#endif
             else
               evap=evap+qevap*dt
             endif
-
-            !for initial ponding, runoff is the residual
-            if (initpond) then
-              h0=qpme*dt - dwinfil
-#ifdef debugMODE
-              !write(IFDEBUG,*) "After inital pond, h0 = " , h0
-#endif
-
-              if (h0<0.) then
-                call USTOP("negative h0 after initial pond")
-              endif
-            endif
-
 
 
             !write (*,*) limitET,qevap,(qprec1*dt-dwinfil)/dt
@@ -1666,6 +1702,7 @@ contains
 
             drn=drn+(q(n)+sig*qya(n)*dy(n))*dt
 #ifdef debugMODE
+
             !write(IFDEBUG,*)  "q(n)dt",q(n)*dt,drn,MAT_MP2H(jt(n),var(n)%phi),var(n)%isat
 #endif
             !OGX: cumulative internodeal flow
@@ -1675,6 +1712,7 @@ contains
             srcum=srcum+srt*dt
             sicum=sicum+sli*dt
             socum=socum+slo*dt
+
 
           end if
 
@@ -1715,7 +1753,6 @@ contains
               write(IFDEBUG, "(A,5(1PE12.4))") "w, (phi1-phi0)/dz, K, q1, K(h0-h1)/dz + K", r1, r2, r3, r2+r3, &
                 r3*(var(i)%h-var(i+1)%h)/dz(i) + r3
             endif
-
 #endif
             j=jt(i); p=>SOLMAT(j); v=>var(i)
             if (v%isat==0) then
@@ -1733,7 +1770,9 @@ contains
                 v%KS=p%KSe; v%phiS=p%phiSe
               end if
             end if
-            !OGX: frozen soil
+
+
+
           end do
           !----- end update unknowns
           if (.not.again) exit
@@ -1811,6 +1850,8 @@ contains
     END SUBROUTINE solve
 
 
+
+
     SUBROUTINE getfluxes(n,jt,dx,dz,vtop,vbot,var,hint,phimin,q,qya,qyb, &
         iflux,init,getq0,getqn,dpmaxr,dx0)
       IMPLICIT NONE
@@ -1845,12 +1886,15 @@ contains
       ! getqn       - true if q(n) required.
       LOGICAL flag,limit
       INTEGER::i,itmp,j,l,m
-      REAL::dphii1,dhi,h1,h2,hi,Khi1,Khi2,phii1,q2,qya2,qyb2,y,y1,y2
+      REAL::dphii1,dhi,h1,h2,hi,Khi1,Khi2,phii1,q2,qya2,qyb2,y,y1,y2,K1,K2,w,halfdx1,halfdx2
       TYPE(SOILMAT),POINTER::p,pm
       TYPE(vars)::vi1,vi2
       TYPE(vars),POINTER::v,vp
       real, parameter	::	hmin=-1.e7
       integer	::	nitsi
+#ifdef debugMODE
+      real :: ffi(2001), hhi(2001)
+#endif
       nitsi = 1
       v=>var(1)
       if (iflux==1.or.v%isat/=0) then ! get top flux if required
@@ -1881,11 +1925,84 @@ contains
             ! iterate to get hi at interface for equal fluxes using Newton's method
             ! get dphii1 at interface in upper layer, because of better linearity,
             ! then convert to dhi
+
+
+
             do while (flag)
               itmp=itmp+1
               if (itmp>1000) then
-                write (*,*) "getfluxes: too many iterations finding interface h"
-                call USTOP(' ')
+                !print_var(IFDEBUG, k, n, var, t, gw, wc, dx, q)
+                write(IFDEBUG, "(2A5,11A12)") "v%isat","j","dx(i)","v%h","v%K","v%phi","p%HBUB","p%WCR","p%WCS","p%LAM","p%ETA","p%PHIE","p%KSAT"
+                write(IFDEBUG, "(2I5,11F12.5)") v%isat,j,dx(i),v%h,v%K,v%phi,p%HBUB,p%WCR,p%WCS,p%LAM,p%ETA,p%PHIE,p%KSAT
+                write(IFDEBUG, "(2I5,11F12.5)") vp%isat,m,dx(i+1),vp%h,vp%K,vp%phi,pm%HBUB,pm%WCR,pm%WCS,pm%LAM,pm%ETA,pm%PHIE,p%KSAT
+
+                !!!! alternative to calculate the flow when the Newton method fails
+                halfdx1 = half*dx(i); halfdx2 = half*dx(i+1)
+                hi=hint(l)
+                do while (flag)
+                  itmp=itmp+1
+                  if (itmp>2001) then
+#ifdef debugMODE
+                    write(IFDEBUG,*) "Fail interface flow"
+                    do itmp=1, 2000
+                      write(IFDEBUG,*) hhi(itmp),ffi(itmp)
+                    enddo
+#endif
+                    call USTOP(' getfluxes: too many iterations finding interface h"')
+                  end if
+                  h1 = hi
+                  vi1%K = MAT_H2K(j,hi)
+                  vi1%phi = MAT_H2MP(j,hi)
+                  if ((v%phi>p%PHIE .and. vi1%phi>p%PHIE) .or. hi-gf*halfdx1>=p%HBUB) then
+                    w=zero
+                  else
+                    w = weight(j,hi,vi1%K,vi1%phi,halfdx1)  !w
+                  endif
+                  K1 = (w*v%K+(one-w)*vi1%K)                !K
+
+                  vi2%K = MAT_H2K(jt(i+1),hi)
+                  vi2%phi = MAT_H2MP(jt(i+1),hi)
+                  if ((vi2%phi>pm%PHIE .and. vp%phi>pm%PHIE) .or. vp%h-gf*(halfdx2)>=pm%HBUB) then
+                    w=zero
+                  else
+                    w = weight(j,vp%h,vp%K,vp%phi,halfdx2)  !w
+                  endif
+                  K2 = (w*vi2%K+(one-w)*vp%K)                !K
+
+                  y1=K1*dx(i+1); y2=K2*dx(i)
+
+#ifdef debugMODE
+                  hhi(itmp) = hi
+                  ffi(itmp) = K1*(v%h+halfdx1-hi)/halfdx1 - K2*(hi-vp%h+halfdx2)/halfdx2
+#endif
+                  hi = (y1*v%h+y2*vp%h+half*gf*(K1-K2)*dx(i)*dx(i+1))/(y1+y2)
+                  if (abs(hi-h1)<0.001) then
+
+                    if (hi<p%HBUB) then
+                      vi1%isat=0
+                      call hyofh(hi,j,vi1%K,Khi1,phii1)
+                      vi1%KS=Khi1/vi1%K ! use dK/dphi, not dK/dS
+                    else
+                      vi1%isat=1
+                      vi1%K=p%KSAT; phii1=p%phie+(hi-p%HBUB)*p%KSAT; vi1%KS=zero
+                    end if
+                    vi1%h=hi; vi1%phi=phii1; vi1%phiS=one ! use dphi/dphi not dphi/dS
+                    call flux(j,v,vi1,half*dx(i),q(i),qya(i),qyb(i))
+                    if (hi<pm%HBUB) then
+                      vi2%isat=0
+                      call hyofh(hi,m,vi2%K,Khi2,vi2%phi)
+                      vi2%KS=Khi2/vi2%K ! dK/dphi
+                    else
+                      vi2%isat=1; vi2%K=pm%KSAT; vi2%phi=pm%phie+(hi-pm%HBUB)*pm%KSAT
+                    end if
+                    vi2%h=hi; vi2%phiS=one ! dphi/dphi
+                    call flux(m,vi2,vp,half*dx(i+1),q2,qya2,qyb2)
+                    qya2=qya2*vi2%K/vi1%K ! partial deriv wrt phii1
+
+                    flag = .false.
+                    exit
+                  endif
+                enddo
               end if
               if (hi<p%HBUB) then
                 vi1%isat=0
@@ -1918,6 +2035,11 @@ contains
               if (-vi1%KS*dphii1>1.5*vi1%K) then ! use 1st order approx for dhi
                 dhi=dphii1/vi1%K
               end if
+
+#ifdef debugMODE
+              hhi(itmp) = hi
+              ffi(itmp) = q(i)-q2
+#endif
               hi=hi+dhi
               ! check for convergence - dphi/(mean phi)<=dpmaxr
               if (limit.or.abs(dphii1/(phii1-half*dphii1))>dpmaxr) then
@@ -1925,7 +2047,11 @@ contains
               else
                 flag=.false.
               end if
+              if (abs(q(i)-q2)<0.001*abs(q(i))) flag=.false.
             end do
+
+
+
             q(i)=q(i)+qyb(i)*dphii1
             hint(l)=hi
             ! adjust derivs
@@ -1940,6 +2066,114 @@ contains
           call flux(jt(n),v,vbot,half*dx(n),q(n),qya(n),qyb(n))
         end if
       end if
+      contains
+        function interf(hi)
+          real, intent(in) :: hi
+          real :: interf
+           if (hi<p%HBUB) then
+            vi1%isat=0
+            call hyofh(hi,j,vi1%K,Khi1,phii1)
+            vi1%KS=Khi1/vi1%K ! use dK/dphi, not dK/dS
+          else
+            vi1%isat=1
+            vi1%K=p%KSAT; phii1=p%phie+(hi-p%HBUB)*p%KSAT; vi1%KS=zero
+          end if
+          vi1%h=hi; vi1%phi=phii1; vi1%phiS=one ! use dphi/dphi not dphi/dS
+          call flux(j,v,vi1,half*dx(i),q(i),qya(i),qyb(i))
+          if (hi<pm%HBUB) then
+            vi2%isat=0
+            call hyofh(hi,m,vi2%K,Khi2,vi2%phi)
+            vi2%KS=Khi2/vi2%K ! dK/dphi
+          else
+            vi2%isat=1; vi2%K=pm%KSAT; vi2%phi=pm%phie+(hi-pm%HBUB)*pm%KSAT
+          end if
+          vi2%h=hi; vi2%phiS=one ! dphi/dphi
+          call flux(m,vi2,vp,half*dx(i+1),q2,qya2,qyb2)
+          qya2=qya2*vi2%K/vi1%K ! partial deriv wrt phii1
+
+          interf = q(i)-q2
+        end function
+
+        FUNCTION zbrent(func,x1,x2,tol)
+          IMPLICIT NONE
+          REAL, INTENT(IN) :: x1,x2,tol
+          REAL :: zbrent
+          INTERFACE
+            FUNCTION interf(x)
+              IMPLICIT NONE
+              REAL, INTENT(IN) :: x
+              REAL :: func
+            END FUNCTION func
+          END INTERFACE
+          INTEGER, PARAMETER :: ITMAX=100
+          REAL, PARAMETER :: EPS=epsilon(x1)
+          !Using Brent¡¯s method, find the root of a function func known to lie between x1 and x2.
+          !The root, returned as zbrent, will be refined until its accuracy is tol.
+          !Parameters: Maximum allowed number of iterations, and machine floating-point precision.
+          INTEGER :: iter
+          REAL :: a,b,c,d,e,fa,fb,fc,p,q,r,s,tol1,xm
+          a=x1
+          b=x2
+          fa=func(a)
+          fb=func(b)
+          if ((fa > 0.0 .and. fb > 0.0) .or. (fa < 0.0 .and. fb < 0.0)) &
+            call USTOP("root must be bracketed for zbrent")
+          c=b
+          fc=fb
+          do iter=1,ITMAX
+            if ((fb > 0.0 .and. fc > 0.0) .or. (fb < 0.0 .and. fc < 0.0)) then
+              c=a !Rename a, b, c and adjust bounding infc= fa terval d.
+              fc=fa
+              d=b-a
+              e=d
+            end if
+            if (abs(fc) < abs(fb)) then
+              a=b
+              b=c
+              c=a
+              fa=fb
+              fb=fc
+              fc=fa
+            end if
+            tol1=2.0*EPS*abs(b)+0.5*tol !Convergence check.
+            xm=0.5*(c-b)
+            if (abs(xm) <= tol1 .or. fb == 0.0) then
+              zbrent=b
+              RETURN
+            end if
+            if (abs(e) >= tol1 .and. abs(fa) > abs(fb)) then
+              s=fb/fa !Attempt inverse quadratic interpolation.
+              if (a == c) then
+                p=2.0*xm*s
+                q=1.0-s
+              else
+                q=fa/fc
+                r=fb/fc
+                p=s*(2.0*xm*q*(q-r)-(b-a)*(r-1.0))
+                q=(q-1.0)*(r-1.0)*(s-1.0)
+              end if
+              if (p > 0.0) q=-q !Check whether in bounds.
+              p=abs(p)
+              if (2.0*p < min(3.0*xm*q-abs(tol1*q),abs(e*q))) then
+                e=d !Accept interpolation.
+                d=p/q
+              else
+                d=xm !Interpolation failed; use bisection.
+                e=d
+              end if
+            else !Bounds decreasing too slowly; use bisection.
+              d=xm
+              e=d
+            end if
+            a=b !Move last best guess to a.
+            fa=fb
+            b=b+merge(d,sign(tol1,xm), abs(d) > tol1 ) !Evaluate new trial root.
+            fb=func(b)
+          end do
+          call USTOP('zbrent:exceeded maximum iterations')
+          zbrent=b
+        END FUNCTION zbrent
+
     END SUBROUTINE getfluxes
 
     SUBROUTINE flux(j,v1,v2,dz,q,qya,qyb)
@@ -1971,6 +2205,7 @@ contains
       else
         if (gf<zero) then
           if ((v1%isat/=0.and.v2%isat/=0).or.v1%h-gf*(-dz)>=p%HBUB) then
+          !if ((v1%phi>p%phie .and. v2%phi>p%phie).or.v1%h-gf*(-dz)>=p%HBUB) then
             ! correction 21/5/07
             !w=zero
             w=one
@@ -1980,6 +2215,7 @@ contains
           end if
         else
           if ((v1%isat/=0.and.v2%isat/=0).or.v2%h-gf*dz>=p%HBUB) then
+          !if ((v1%phi>p%phie .and. v2%phi>p%phie).or.v2%h-gf*dz>=p%HBUB) then
             w=zero
           else
             w=weight(j,v2%h,v2%K,v2%phi,dz)
@@ -1988,11 +2224,13 @@ contains
         rdz=one/dz
         q=(v1%phi-v2%phi)*rdz+gf*(w*v1%K+(one-w)*v2%K)
         if (v1%isat==0) then
+        !if (v1%phi<p%phie) then
           qya=v1%phiS*rdz+gf*w*v1%KS
         else
           qya=rdz
         end if
         if (v2%isat==0) then
+        !if (v2%phi<p%phie) then
           qyb=-v2%phiS*rdz+gf*(1.-w)*v2%KS
         else
           qyb=-rdz
@@ -2782,6 +3020,7 @@ contains
     integer	::	iLay1, ii
     integer		          ::  IHCRIT
     integer		          ::  IHINI
+    integer		          ::  IINIT
     integer		          ::  IDIV		  !Method of node discretization,  1 coinside with soil layer
     !                                                                !2 uniformly divided into minimum thickness
     !                                                                !3 variably divide by artimetic progression
@@ -2914,6 +3153,12 @@ contains
     endif
     !shallst and gw_spyld were read in readgw
     scol%DEPGWREF=(scol%ZTOP-r1)*1000.0+shallst(i)/gw_spyld(i)
+
+
+    call URDCOM(IFIN,slogfile,sLine)
+    iLoc=1
+    call URWORD(sLine,iLoc,iStart,iStop,2,IINIT,r0,slogfile,IFIN)
+    !IINIT = 3
 
     call URDCOM(IFIN,slogfile,sLine)
     iLoc=1
@@ -3101,10 +3346,21 @@ contains
 
     !call bottom_pressure(k,NNOD,NUNS,DZ,dzgw,scol%DEPGW)
 
+    select case(IINIT)
+      case(1)
+        call initial_uniform(NUNS,DZ,jt,HINI,dzgw,HEAD)
+      case(2)
+        call initial_linear(NUNS,DZ,jt,HINI,dzgw,HEAD)
+      case(3)
+        call initial_steady(NUNS,DZ,jt,HINI,dzgw,HEAD)
+      case(4)
+        call initial_newton(NUNS,DZ,jt,HINI,dzgw,HEAD)
+      case default
+        write(IFDEBUG,*) "The IINIT value is incorrect. Linear distribution is used."
+        call initial_linear(NUNS,DZ,jt,HINI,dzgw,HEAD)
+    end select
 
-    !call initial_state(NUNS,DZ,jt,HINI,dzgw,HEAD)
 
-    call solve_steady(NUNS,DZ,jt,HINI,dzgw,HEAD)
     !call solve_steady_newton(NUNS,DZ,jt,HINI,dzgw,HEAD)
 
     !DZ(NUNS)=DZ(NUNS)+dzgw
@@ -3192,7 +3448,7 @@ contains
     !initial overland flow
 
     scol%POV=sqrt(hru_slp(k))/ov_n(k)/slsubbsn(k)*3.6e1
-
+    scol%qrcss = scol%POV*scol%hqmin**(5./3.)
     scol%QOV=0.
 
   end subroutine
@@ -3329,9 +3585,7 @@ contains
     use ROSSMOD
     use parm, only: mhru,nstep,ievent
     real :: dt
-#ifdef debugMODE
-    !print *, 'nstep=',nstep
-#endif
+
 
     allocate(SOLCOL(mhru))
     !allocate(SOLMAT(mhru*10))   !assuming the maximum number of layers of each HRU is 10

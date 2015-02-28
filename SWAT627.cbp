@@ -8,7 +8,7 @@
 		<Build>
 			<Target title="Debug">
 				<Option output="bin/Debug/SWAT627" prefix_auto="1" extension_auto="1" />
-				<Option working_dir="../@TxtInOut" />
+				<Option working_dir="D:/@Workspace/Okalahoma_Little_Washita_Single_HRU/CAlibration_PEST/TxtInOut20150224" />
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gfortran" />
@@ -716,7 +716,7 @@
 			<Option weight="1" />
 		</Unit>
 		<Unit filename="rev627_source/sim_initday.f">
-			<Option weight="1" />
+			<Option weight="2" />
 		</Unit>
 		<Unit filename="rev627_source/sim_inityr.f">
 			<Option weight="1" />

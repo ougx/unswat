@@ -252,7 +252,7 @@ subroutine TRS(k)
     write (IFBAL,'(I5,17((F12.4)))') k,tstep(mstep)/24.,scol%DEPGW,dzgw,qNET,scol%EPMAX*24.,s0,s1, &
                               sum(runoff),scol%HPOND,infil,evap,drn,sic,soc,src, &
                               s0+infil-drn+sic-soc-src-s1, &
-                              rain-(s1-s0+scol%HPOND+drn+evap+soc+src-sic)
+                              rain-(s1-s0+scol%HPOND+drn+evap+soc+src+sum(runoff)-sic)
   endif
   if (scol%IPRINT == -1) then
     call print_var(IFPROFILE,k,nun,scol%var,tstep(mstep)/24.,scol%DEPGW,scol%WC,DZ,qsum)
