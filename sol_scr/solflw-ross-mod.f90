@@ -1886,11 +1886,11 @@ contains
       ! getqn       - true if q(n) required.
       LOGICAL flag,limit
       INTEGER::i,itmp,j,l,m
-      REAL::dphii1,dhi,h1,h2,hi,Khi1,Khi2,phii1,q2,qya2,qyb2,y,y1,y2,K1,K2,w,halfdx1,halfdx2
+      REAL::dphii1,dhi,h1,h2,hi,Khi1,Khi2,phii1,q2,qya2,qyb2,y,y1,y2,K1,K2,w,x1,x2
       TYPE(SOILMAT),POINTER::p,pm
       TYPE(vars)::vi1,vi2
       TYPE(vars),POINTER::v,vp
-      real, parameter	::	hmin=-1.e7
+      real, parameter	::	hmin=-1.e7, tol = 1.e-4
       integer	::	nitsi
 #ifdef debugMODE
       real :: ffi(2001), hhi(2001)
@@ -1925,134 +1925,20 @@ contains
             ! iterate to get hi at interface for equal fluxes using Newton's method
             ! get dphii1 at interface in upper layer, because of better linearity,
             ! then convert to dhi
+            
+            x1 = v%h + dx(i)*half
+            x2 = vp%h - dx(i+1)*half   
+            if (x1 == x2) then 
+              !hydrostatic
+              y1 = interf(x1)
+              
+            else
+              hi = zbrent(interf,x1,x2,tol)
+            endif
+            
 
 
-
-            do while (flag)
-              itmp=itmp+1
-              if (itmp>1000) then
-                !print_var(IFDEBUG, k, n, var, t, gw, wc, dx, q)
-                write(IFDEBUG, "(2A5,11A12)") "v%isat","j","dx(i)","v%h","v%K","v%phi","p%HBUB","p%WCR","p%WCS","p%LAM","p%ETA","p%PHIE","p%KSAT"
-                write(IFDEBUG, "(2I5,11F12.5)") v%isat,j,dx(i),v%h,v%K,v%phi,p%HBUB,p%WCR,p%WCS,p%LAM,p%ETA,p%PHIE,p%KSAT
-                write(IFDEBUG, "(2I5,11F12.5)") vp%isat,m,dx(i+1),vp%h,vp%K,vp%phi,pm%HBUB,pm%WCR,pm%WCS,pm%LAM,pm%ETA,pm%PHIE,p%KSAT
-
-                !!!! alternative to calculate the flow when the Newton method fails
-                halfdx1 = half*dx(i); halfdx2 = half*dx(i+1)
-                hi=hint(l)
-                do while (flag)
-                  itmp=itmp+1
-                  if (itmp>2001) then
-#ifdef debugMODE
-                    write(IFDEBUG,*) "Fail interface flow"
-                    do itmp=1, 2000
-                      write(IFDEBUG,*) hhi(itmp),ffi(itmp)
-                    enddo
-#endif
-                    call USTOP(' getfluxes: too many iterations finding interface h"')
-                  end if
-                  h1 = hi
-                  vi1%K = MAT_H2K(j,hi)
-                  vi1%phi = MAT_H2MP(j,hi)
-                  if ((v%phi>p%PHIE .and. vi1%phi>p%PHIE) .or. hi-gf*halfdx1>=p%HBUB) then
-                    w=zero
-                  else
-                    w = weight(j,hi,vi1%K,vi1%phi,halfdx1)  !w
-                  endif
-                  K1 = (w*v%K+(one-w)*vi1%K)                !K
-
-                  vi2%K = MAT_H2K(jt(i+1),hi)
-                  vi2%phi = MAT_H2MP(jt(i+1),hi)
-                  if ((vi2%phi>pm%PHIE .and. vp%phi>pm%PHIE) .or. vp%h-gf*(halfdx2)>=pm%HBUB) then
-                    w=zero
-                  else
-                    w = weight(j,vp%h,vp%K,vp%phi,halfdx2)  !w
-                  endif
-                  K2 = (w*vi2%K+(one-w)*vp%K)                !K
-
-                  y1=K1*dx(i+1); y2=K2*dx(i)
-
-#ifdef debugMODE
-                  hhi(itmp) = hi
-                  ffi(itmp) = K1*(v%h+halfdx1-hi)/halfdx1 - K2*(hi-vp%h+halfdx2)/halfdx2
-#endif
-                  hi = (y1*v%h+y2*vp%h+half*gf*(K1-K2)*dx(i)*dx(i+1))/(y1+y2)
-                  if (abs(hi-h1)<0.001) then
-
-                    if (hi<p%HBUB) then
-                      vi1%isat=0
-                      call hyofh(hi,j,vi1%K,Khi1,phii1)
-                      vi1%KS=Khi1/vi1%K ! use dK/dphi, not dK/dS
-                    else
-                      vi1%isat=1
-                      vi1%K=p%KSAT; phii1=p%phie+(hi-p%HBUB)*p%KSAT; vi1%KS=zero
-                    end if
-                    vi1%h=hi; vi1%phi=phii1; vi1%phiS=one ! use dphi/dphi not dphi/dS
-                    call flux(j,v,vi1,half*dx(i),q(i),qya(i),qyb(i))
-                    if (hi<pm%HBUB) then
-                      vi2%isat=0
-                      call hyofh(hi,m,vi2%K,Khi2,vi2%phi)
-                      vi2%KS=Khi2/vi2%K ! dK/dphi
-                    else
-                      vi2%isat=1; vi2%K=pm%KSAT; vi2%phi=pm%phie+(hi-pm%HBUB)*pm%KSAT
-                    end if
-                    vi2%h=hi; vi2%phiS=one ! dphi/dphi
-                    call flux(m,vi2,vp,half*dx(i+1),q2,qya2,qyb2)
-                    qya2=qya2*vi2%K/vi1%K ! partial deriv wrt phii1
-
-                    flag = .false.
-                    exit
-                  endif
-                enddo
-              end if
-              if (hi<p%HBUB) then
-                vi1%isat=0
-                call hyofh(hi,j,vi1%K,Khi1,phii1)
-                vi1%KS=Khi1/vi1%K ! use dK/dphi, not dK/dS
-              else
-                vi1%isat=1
-                vi1%K=p%KSAT; phii1=p%phie+(hi-p%HBUB)*p%KSAT; vi1%KS=zero
-              end if
-              vi1%h=hi; vi1%phi=phii1; vi1%phiS=one ! use dphi/dphi not dphi/dS
-              call flux(j,v,vi1,half*dx(i),q(i),qya(i),qyb(i))
-              if (hi<pm%HBUB) then
-                vi2%isat=0
-                call hyofh(hi,m,vi2%K,Khi2,vi2%phi)
-                vi2%KS=Khi2/vi2%K ! dK/dphi
-              else
-                vi2%isat=1; vi2%K=pm%KSAT; vi2%phi=pm%phie+(hi-pm%HBUB)*pm%KSAT
-              end if
-              vi2%h=hi; vi2%phiS=one ! dphi/dphi
-              call flux(m,vi2,vp,half*dx(i+1),q2,qya2,qyb2)
-              qya2=qya2*vi2%K/vi1%K ! partial deriv wrt phii1
-              ! adjust for equal fluxes
-              dphii1=-(q(i)-q2)/(qyb(i)-qya2)
-              limit=.false.
-              if (phii1+dphii1<=phimin(l)) then ! out of range
-                limit=.true.; dphii1=-half*(phii1-phimin(l))
-              end if
-              phii1=phii1+dphii1
-              dhi=dphii1/(vi1%K+half*vi1%KS*dphii1) ! 2nd order Pade approx
-              if (-vi1%KS*dphii1>1.5*vi1%K) then ! use 1st order approx for dhi
-                dhi=dphii1/vi1%K
-              end if
-
-#ifdef debugMODE
-              hhi(itmp) = hi
-              ffi(itmp) = q(i)-q2
-#endif
-              hi=hi+dhi
-              ! check for convergence - dphi/(mean phi)<=dpmaxr
-              if (limit.or.abs(dphii1/(phii1-half*dphii1))>dpmaxr) then
-                nitsi=nitsi+1 ! accumulate no. of interface its
-              else
-                flag=.false.
-              end if
-              if (abs(q(i)-q2)<0.001*abs(q(i))) flag=.false.
-            end do
-
-
-
-            q(i)=q(i)+qyb(i)*dphii1
+            !q(i)=q(i)+qyb(i)*dphii1
             hint(l)=hi
             ! adjust derivs
             y=1./(qya2-qyb(i))
@@ -2092,6 +1978,9 @@ contains
           qya2=qya2*vi2%K/vi1%K ! partial deriv wrt phii1
 
           interf = q(i)-q2
+#ifdef debugMODE
+          !write(IFDEBUG,*) "hi, interflow", hi,  interf
+#endif
         end function
 
         FUNCTION zbrent(func,x1,x2,tol)
@@ -2099,7 +1988,7 @@ contains
           REAL, INTENT(IN) :: x1,x2,tol
           REAL :: zbrent
           INTERFACE
-            FUNCTION interf(x)
+            FUNCTION func(x)
               IMPLICIT NONE
               REAL, INTENT(IN) :: x
               REAL :: func
@@ -2116,8 +2005,32 @@ contains
           b=x2
           fa=func(a)
           fb=func(b)
-          if ((fa > 0.0 .and. fb > 0.0) .or. (fa < 0.0 .and. fb < 0.0)) &
-            call USTOP("root must be bracketed for zbrent")
+          if ((fa > 0.0 .and. fb > 0.0) .or. (fa < 0.0 .and. fb < 0.0)) then
+            !extend the range using secant method
+            if (abs(fc) < abs(fb)) then
+              a=b
+              b=c
+              c=a
+              fa=fb
+              fb=fc
+              fc=fa
+            end if
+            do while (fa*fb>0)
+
+              c = (a*fb-b*fa)/(fb-fa)
+              fc = func(c)
+              if (abs(fc)<1.e-3) then
+                return
+              endif
+              if(abs(fc)<abs(fa)) then
+                fb=fa;fa=fc
+                b=a;a=c
+              else
+                fb=fc
+                b=c
+              endif
+            enddo
+          endif
           c=b
           fc=fb
           do iter=1,ITMAX
@@ -2137,7 +2050,7 @@ contains
             end if
             tol1=2.0*EPS*abs(b)+0.5*tol !Convergence check.
             xm=0.5*(c-b)
-            if (abs(xm) <= tol1 .or. fb == 0.0) then
+            if (abs(xm) <= tol1 .or. abs(fb) == 0.0) then
               zbrent=b
               RETURN
             end if
@@ -2806,89 +2719,89 @@ contains
 
     end subroutine finalizedayun
 
-    subroutine tileflow
-      !! compute shallow water table depth and tile flow
-
-      use parm
-
-      integer :: j, j1, nn, k
-      real d,por_air,sumqtile,sw_del,wt_del,wat,xx,yy
-      j = 0
-      j = ihru
-      qtile = 0.
-      wt_shall = 0.    !CB 8/24/09
-      wt_shall = dep_imp(j)
-      !! drainmod tile equations   08/11/2006
-      if (sol_tmp(2,j) > 0.) then   !Daniel 1/29/09
-        por_air = 0.5
-        d = dep_imp(j) - ddrain(j)
-        !! drainmod wt_shall equations   10/23/2006
-        if (iwtdn == 0) then !compute wt_shall using original eq-Daniel 10/23/06
-          if (sol_sw(j) > sol_sumfc(j)) then
-            yy = sol_sumul(j) * por_air
-            if (yy < 1.1 * sol_sumfc(j)) then
-              yy = 1.1 * sol_sumfc(j)
-            end if
-            xx = (sol_sw(j) - sol_sumfc(j)) / (yy - sol_sumfc(j))
-            if (xx > 1.) xx = 1.
-            wt_shall = xx * dep_imp(j)
-            wat = dep_imp(j) - wt_shall
-            if(wat > dep_imp(j)) wat = dep_imp(j)
-          end if
-        else
-          !compute water table depth using Daniel's modifications
-          do j1 = 1, sol_nly(j)
-            if (wat_tbl(j) < sol_z(j1,j)) then
-              sw_del = sol_swpwt(j) - sol_sw(j)
-              wt_del = sw_del * vwt(j1,j)
-              wat_tbl(j) = wat_tbl(j) + wt_del
-              if(wat_tbl(j) > dep_imp(j)) wat_tbl(j) = dep_imp(j)
-              wt_shall = dep_imp(j) - wat_tbl(j)
-              sol_swpwt(j) = sol_sw(j)
-              exit
-            end if
-          end do
-        end if
-        !! drainmod wt_shall equations   10/23/2006
-
-        if (ddrain(j) > 0.) then
-          if (wt_shall <= d) then
-            qtile = 0.
-          else
-            !! Start Daniel's tile equations modifications  01/2006
-            if (itdrn == 1) then
-              call drains     ! compute tile flow using drainmod tile equations
-              !! drainmod tile equations   01/2006
-            else !! compute tile flow using existing tile equations
-              call origtile(d)! existing tile equations
-              if(qtile < 0.) qtile=0.
-            end if
-          end if
-        end if
-      end if
-      !! End Daniel's tile equations modifications  01/2006
-
-      if (qtile > 0.) then
-        !! update soil profile water after tile drainage
-        sumqtile = qtile
-        do j1 = 1, sol_nly(j)
-          xx = sol_st(j1,j) - sol_fc(j1,j)
-          if (xx > 0.) then
-            if (xx > sumqtile) then
-              sol_st(j1,j) = sol_st(j1,j) - sumqtile
-              sumqtile = 0.
-            else
-              sumqtile = sumqtile - xx
-              sol_st(j1,j) = sol_fc(j1,j)
-            end if
-          end if
-        end do
-        if (sumqtile > 0.) then
-          qtile = qtile - sumqtile
-          qtile = amax1(0., qtile)
-        end if
-      end if
-    end subroutine
+    !subroutine tileflow
+    !  !! compute shallow water table depth and tile flow
+    !
+    !  use parm
+    !
+    !  integer :: j, j1, nn, k
+    !  real d,por_air,sumqtile,sw_del,wt_del,wat,xx,yy
+    !  j = 0
+    !  j = ihru
+    !  qtile = 0.
+    !  wt_shall = 0.    !CB 8/24/09
+    !  wt_shall = dep_imp(j)
+    !  !! drainmod tile equations   08/11/2006
+    !  if (sol_tmp(2,j) > 0.) then   !Daniel 1/29/09
+    !    por_air = 0.5
+    !    d = dep_imp(j) - ddrain(j)
+    !    !! drainmod wt_shall equations   10/23/2006
+    !    if (iwtdn == 0) then !compute wt_shall using original eq-Daniel 10/23/06
+    !      if (sol_sw(j) > sol_sumfc(j)) then
+    !        yy = sol_sumul(j) * por_air
+    !        if (yy < 1.1 * sol_sumfc(j)) then
+    !          yy = 1.1 * sol_sumfc(j)
+    !        end if
+    !        xx = (sol_sw(j) - sol_sumfc(j)) / (yy - sol_sumfc(j))
+    !        if (xx > 1.) xx = 1.
+    !        wt_shall = xx * dep_imp(j)
+    !        wat = dep_imp(j) - wt_shall
+    !        if(wat > dep_imp(j)) wat = dep_imp(j)
+    !      end if
+    !    else
+    !      !compute water table depth using Daniel's modifications
+    !      do j1 = 1, sol_nly(j)
+    !        if (wat_tbl(j) < sol_z(j1,j)) then
+    !          sw_del = sol_swpwt(j) - sol_sw(j)
+    !          wt_del = sw_del * vwt(j1,j)
+    !          wat_tbl(j) = wat_tbl(j) + wt_del
+    !          if(wat_tbl(j) > dep_imp(j)) wat_tbl(j) = dep_imp(j)
+    !          wt_shall = dep_imp(j) - wat_tbl(j)
+    !          sol_swpwt(j) = sol_sw(j)
+    !          exit
+    !        end if
+    !      end do
+    !    end if
+    !    !! drainmod wt_shall equations   10/23/2006
+    !
+    !    if (ddrain(j) > 0.) then
+    !      if (wt_shall <= d) then
+    !        qtile = 0.
+    !      else
+    !        !! Start Daniel's tile equations modifications  01/2006
+    !        if (itdrn == 1) then
+    !          call drains     ! compute tile flow using drainmod tile equations
+    !          !! drainmod tile equations   01/2006
+    !        else !! compute tile flow using existing tile equations
+    !          call origtile(d)! existing tile equations
+    !          if(qtile < 0.) qtile=0.
+    !        end if
+    !      end if
+    !    end if
+    !  end if
+    !  !! End Daniel's tile equations modifications  01/2006
+    !
+    !  if (qtile > 0.) then
+    !    !! update soil profile water after tile drainage
+    !    sumqtile = qtile
+    !    do j1 = 1, sol_nly(j)
+    !      xx = sol_st(j1,j) - sol_fc(j1,j)
+    !      if (xx > 0.) then
+    !        if (xx > sumqtile) then
+    !          sol_st(j1,j) = sol_st(j1,j) - sumqtile
+    !          sumqtile = 0.
+    !        else
+    !          sumqtile = sumqtile - xx
+    !          sol_st(j1,j) = sol_fc(j1,j)
+    !        end if
+    !      end if
+    !    end do
+    !    if (sumqtile > 0.) then
+    !      qtile = qtile - sumqtile
+    !      qtile = amax1(0., qtile)
+    !    end if
+    !  end if
+    !end subroutine
 
 
     subroutine print_mat(imat)
