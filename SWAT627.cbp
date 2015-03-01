@@ -13,6 +13,7 @@
 				<Option type="1" />
 				<Option compiler="gfortran" />
 				<Compiler>
+					<Add option="-cpp" />
 					<Add option="-g" />
 				</Compiler>
 			</Target>
@@ -22,7 +23,9 @@
 				<Option type="1" />
 				<Option compiler="gfortran" />
 				<Compiler>
+					<Add option="-ffast-math" />
 					<Add option="-O2" />
+					<Add option="-cpp" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
