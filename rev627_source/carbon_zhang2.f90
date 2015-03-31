@@ -2,10 +2,10 @@
         use parm
         !!============================================
         !!Input variables
-        !!    sol_bd(:,:) |Mg/m**3       |bulk density of the soil	
+        !!    sol_bd(:,:) |Mg/m**3       |bulk density of the soil
         !!    sol_st(:,:)   |mm H2O        |amount of water stored in the soil layer on
         !!                                 |current day
-        !!    sol_fc(:,:)   |mm H2O        |amount of water available to plants in soil 
+        !!    sol_fc(:,:)   |mm H2O        |amount of water available to plants in soil
         !!                                 |layer at field capacity (fc - wp),Index:(layer,HRU)
         !!    sol_wp(:,:)   |mm H20/mm soil|water content of soil at -1.5 MPa (wilting
         !!                                 |point)
@@ -39,17 +39,17 @@
                 !layers = 0.000012 day-1) (Parton et al.,1993, 1994)
        !HSR     : rate of transformation of slow humus under optimal conditions (all layers
                 != 0.0005 day-1) (Parton et al., 1993, 1994; Vitousek et al., 1993)
-       !KOC     : liquid–solid partition coefficient for microbial biomass (10^3 m^3 Mg-1) 
+       !KOC     : liquid–solid partition coefficient for microbial biomass (10^3 m^3 Mg-1)
        !BMR     : rate of transformation of microbial biomass and associated products under optimal
-       !            conditions (surface = 0.0164 day-1; all other layers = 0.02 day-1) (Parton et al., 1993, 1994)       
+       !            conditions (surface = 0.0164 day-1; all other layers = 0.02 day-1) (Parton et al., 1993, 1994)
        !LMR     : rate of transformation of metabolic litter under optimal conditions (surface =
                 !0.0405 day-1; all other layers = 0.0507 day-1) (Parton et al., 1994)
-       !Sf      : fraction of mineral N sorbed to litter: 0.05 for surface litter, 0.1 for belowground litter     
+       !Sf      : fraction of mineral N sorbed to litter: 0.05 for surface litter, 0.1 for belowground litter
 
        !Cf      : carbon fraction of organic materials 0.42; from data of Pinck et al., 1950)
        !LSR     : rate of potential transformation of structural litter under optimal conditions
                 !(surface = 0.0107 day-1; all other layers= 0.0132 day-1) (Parton et al., 1994)
-       !PRMT_51 !COEF ADJUSTS MICROBIAL ACTIVITY FUNCTION IN TOP SOIL LAYER (0.1_1.),     
+       !PRMT_51 !COEF ADJUSTS MICROBIAL ACTIVITY FUNCTION IN TOP SOIL LAYER (0.1_1.),
        !PRMT_45 !COEF IN CENTURY EQ ALLOCATING SLOW TO PASSIVE HUMUS(0.001_0.05) ORIGINAL VALUE = 0.003,
 
 
@@ -76,9 +76,9 @@
        !HSCTP   : potential transformation of C in slow humus (kg ha-1 day-1)
        !HSNTP   : potential transformation of N in slow humus (kg ha-1 day-1)
        !HPCTP   : potential transformation of C in passive humus (kg ha-1 day-1)
-       !HPNTP   : potential transformation of N in passive humus (kg ha-1 day-1)    
-       !LMF     : fraction of the litter that is metabolic    
-       !LMNF    : fraction of metabolic litter that is N (kg kg-1)  
+       !HPNTP   : potential transformation of N in passive humus (kg ha-1 day-1)
+       !LMF     : fraction of the litter that is metabolic
+       !LMNF    : fraction of metabolic litter that is N (kg kg-1)
        !LMCTP   : potential transformation of C in metabolic litter (kg ha-1 day-1)
        !LMNTP   : potential transformation of N in metabolic litter (kg ha-1 day-1)
        !LSCTP   : potential transformation of C in structural litter (kg ha-1 day-1)
@@ -86,23 +86,23 @@
        !LSLF    : fraction of structural litter that is lignin (kg kg-1)
        !LSNF    : fraction of structural litter that is N (kg kg-1)
        !LSLCTP  : potential transformation of C in lignin of structural litter (kg ha-1 day-1)
-       !LSLNCTP : potential transformation of C in nonlignin structural litter (kg ha-1 day-1)  
+       !LSLNCTP : potential transformation of C in nonlignin structural litter (kg ha-1 day-1)
        !LSNTP   : potential transformation of N in structural litter (kg ha-1 day-1)
        !NCBM    : N/C ratio of biomass
        !NCHP    : N/C ratio passive humus
        !NCHS    : N/C ratio of the slow humus
        !OX      : oxygen control on biological processes with soil depth
-       !SUT     : soil water control on biological processes 
+       !SUT     : soil water control on biological processes
        !X1      : tillage control on residue decomposition (Not used)
        !XBMT    : control on transformation of microbial biomass by soil texture and structure.
                 !Its values: surface litter layer = 1; all other layers = 1-0.75*(SILF + CLAF) (Parton et al., 1993, 1994)
        !XLSLF   : control on potential transformation of structural litter by lignin fraction
                 !of structural litter [XLSLF = exp(-3* LSLF) (Parton et al., 1993, 1994)]
        integer :: j, k, kk
-       real :: sol_mass, sol_min_n 
+       real :: sol_mass, sol_min_n
        real :: fc, wc, sat, void, sut, cdg, OX, CS
        real :: X1,X3, XX
-       real :: LMF, LSF, LSLF, XLSLF, LSR, BMR, XBMT, HSR, HPR       
+       real :: LMF, LSF, LSLF, XLSLF, LSR, BMR, XBMT, HSR, HPR
        real :: LSCTA, LSLCTA, LSLNCTA,LSNTA, LMCTA, LMNTA, BMCTA, BMNTA, HSCTA, HSNTA, HPCTA, HPNTA
        real :: LSCTP, LSLCTP, LSLNCTP, LSNTP, LMR, LMCTP, LMNTP, BMCTP,HSCTP, HSNTP, HPCTP, HPNTP
        real :: NCHP, Nf, NCBM, NCHS, ALSLCO2, ALSLNCO2,ALMCO2,ABCO2, A1CO2, APCO2, ASCO2, ABP, ASP, A1, ASX, APX
@@ -114,8 +114,8 @@
        real :: WMIN,DMDN, wdn, Delta_BMC, DeltaWN
        !! initilize local variables
        DeltaWN = 0.
-       DeltaBMC = 0.   
-       wdn = 0.   
+       DeltaBMC = 0.
+       wdn = 0.
        X1 = 0.
        X3 = 0.
        XX = 0.
@@ -142,7 +142,7 @@
        BMCTA = 0.
        BMNTA = 0.
        HSCTA = 0.
-       HSNTA= 0. 
+       HSNTA= 0.
        HPCTA= 0.
        HPNTA= 0.
        LSLCTP= 0.
@@ -207,48 +207,48 @@
        CPN5= 0.
        WMIN= 0.
        DMDN= 0.
-        
+
        j=0
        j=ihru
-        
+
        do k = 1,sol_nly(j)
-          ! a simple equation to calculate Bulk Density from DSSAT (Not Used)  
-          !XZ = sol_cbn(k,j)  
-          !sol_BDM(k)=ZZ/(1./BD(J)-XZ/.224)  
-       end do 
+          ! a simple equation to calculate Bulk Density from DSSAT (Not Used)
+          !XZ = sol_cbn(k,j)
+          !sol_BDM(k)=ZZ/(1./BD(J)-XZ/.224)
+       end do
 
         !!for debug purpose by zhang
        if (iyr == 1941 .and. i==134) then
         !write(*,*) 'stop'
-       end if    
+       end if
 
       !calculate tillage factor using DSSAT
       if (tillage_switch(j) .eq. 1 .and. tillage_days(j) .le. 30) then
          tillage_factor(j) = 1.6
       else
          tillage_factor(j) = 1.0
-      end if	
+      end if
       !calculate tillage factor using DSSAT
 
-      
+
       !!calculate C/N dynamics for each soil layer
       !!===========================================
        do k = 1, sol_nly(j)
           if (k == 1) then
             !10 cm / 1000 = 0.01m; 1 ha = 10000 m2; ton/m3; * 1000 --> final unit is kg/ha; rock fraction is considered
- 		    sol_mass = (10) / 1000.* 10000. * sol_bd(k,j)* 1000. *(1- sol_rock(k,j) / 100.)            
+ 		    sol_mass = (10) / 1000.* 10000. * sol_bd(k,j)* 1000. *(1- sol_rock(k,j) / 100.)
           else
 		    sol_mass = (sol_z(k,j) - sol_z(k-1,j)) / 1000.* 10000. * sol_bd(k,j)* 1000. *(1- sol_rock(k,j) / 100.)
-	      end if        
-         
+	      end if
+
           !!If k = 1, then using temperature, soil moisture in layer 2 to calculate decomposition factor
-          !!Not 
-	      kk =0 
+          !!Not
+	      kk =0
 	      if (k == 1) then
 	        kk = 2
 	      else
 	        kk = k
-	      end if	  	
+	      end if
           !! mineralization can occur only if temp above 0 deg
           !check sol_st soil water content in each soil ayer mm H2O
           if (sol_tmp(k,j) > 0. .AND. sol_st(k,j) > 0.) then
@@ -258,31 +258,31 @@
               wc = sol_st(k,j) + sol_wpmm(k,j)        ! units mm
               sat = sol_ul(k,j) + sol_wpmm(k,j)       ! units mm
               void = sol_por(k,j) * (1. - wc / sat)   ! fraction
-              !!from Armen              
-              
+              !!from Armen
+
               sut = 0.
               !sut = .1 + .9 * Sqrt(sol_st(kk,j) / sol_fc(kk,j))
               !sut = .1 + .9 * Sqrt(wc / fc)
-              
+
               X1=wc-sol_wpmm(k,j)
 	          IF(X1<0.)THEN
 	              SUT=.1*(sol_st(kk,j) /sol_wpmm(k,j))**2
 	          ELSE
 	              SUT = .1 + .9 * Sqrt(sol_st(k,j) / sol_fc(k,j))
-              END IF             
+              END IF
               sut = Min(1., sut)
               sut = Max(.05, sut)
               !check X1, FC, S15
- 
-              !from Armen 
+
+              !from Armen
               !wf = fwf(fc,wc,sol_wpmm(kk,j))
               !of = fof(void,sol_por(kk,j))
               !sut = wf * of
               !from Armen
-              
+
  		      !!compute tillage factor (X1)
 		      !use the tillfactor module from Armen
-		      !X1 = ftilf(tillagef(kk,j), wc, sat) 
+		      !X1 = ftilf(tillagef(kk,j), wc, sat)
               X1 = 1.0
 
 		      !calculate tillage factor using DSSAT
@@ -294,11 +294,11 @@
 		                X1 = 1.6
 		             elseif (sol_z(k-1,j) .lt. tillage_depth(j)) then
 		                X1 = 1.0 + 0.6*(tillage_depth(j) - sol_z(k-1,j))/(sol_z(k,j) - sol_z(k-1,j))
-		             end if		         
+		             end if
 		         end if
 		      else
 		         X1 = 1.0
-		      end if	
+		      end if
 		      !calculate tillage factor using DSSAT
 
               !!compute soil temperature factor
@@ -313,15 +313,16 @@
     		  !!from Armen
     		  cdg = fcgd(sol_tmp(k,j))
     		  !!from Armen
-    		  
+
 		      !!compute oxygen (OX)
 		      OX = 0.
 		      !OX = 1 - (0.9* sol_z(k,j)/1000.) / (sol_z(k,j)/1000.+ exp(1.50-3.99*sol_z(k,j)/1000.))
-		      !OX = 1 - (0.8* sol_z(k,j)) / (sol_z(k,j)+ exp(1.50-3.99*sol_z(k,j)))  
-		      OX=1.-0.8*((sol_z(kk,j)+sol_z(kk-1,j))/2)/(((sol_z(kk,j)+sol_z(kk-1,j))/2)+EXP(18.40961-0.023683632*((sol_z(kk,j)+sol_z(kk-1,j))/2)))  			
+		      !OX = 1 - (0.8* sol_z(k,j)) / (sol_z(k,j)+ exp(1.50-3.99*sol_z(k,j)))
+		      OX=1.-0.8*((sol_z(kk,j)+sol_z(kk-1,j))/2)/(((sol_z(kk,j)+sol_z(kk-1,j))/2)+ &
+            EXP(18.40961-0.023683632*((sol_z(kk,j)+sol_z(kk-1,j))/2)))
               !! compute combined factor
 		      CS = 0.
-		      CS=MIN(10.,SQRT(cdg*sut)*0.9*OX*X1)              
+		      CS=MIN(10.,SQRT(cdg*sut)*0.9*OX*X1)
                !! call denitrification (to use void and cdg factor)
                 wdn = 0.
                 cdg = fcgd(sol_tmp(k,j))
@@ -331,18 +332,18 @@
                 wshd_dnit = wshd_dnit + wdn * hru_dafr(j)
                 wdntl = wdntl + wdn
 
- 
- 
+
+
               sol_min_n = sol_no3(k,j) + sol_nh3(k,j)
-              
-              
-              !lignin content in structural litter (fraction)          
+
+
+              !lignin content in structural litter (fraction)
               RLR = 0.
-              RLR = min(0.8,sol_LSL(k,j)/(sol_LS(k,j) + 1.E-5))  
+              RLR = min(0.8,sol_LSL(k,j)/(sol_LS(k,j) + 1.E-5))
 
 	          !HSR=PRMT(47) !CENTURY SLOW HUMUS TRANSFORMATION RATE D^-1(0.00041_0.00068) ORIGINAL VALUE = 0.000548,
 	          HSR = 5.4799998E-04
-              !HPR=PRMT(48) !CENTURY PASSIVE HUMUS TRANSFORMATION RATE D^-1(0.0000082_0.000015) ORIGINAL VALUE = 0.000012 
+              !HPR=PRMT(48) !CENTURY PASSIVE HUMUS TRANSFORMATION RATE D^-1(0.0000082_0.000015) ORIGINAL VALUE = 0.000012
               HPR = 1.2000000E-05
 
               APCO2=.55
@@ -350,7 +351,7 @@
               PRMT_51 =0.   !COEF ADJUSTS MICROBIAL ACTIVITY FUNCTION IN TOP SOIL LAYER (0.1_1.),
               PRMT_51 = 1.
               !!The following codes are clculating of the N:C ration in the newly formed SOM for each pool
-              !!please note that in the surface layer, no new materials enter Passive pool, therefore, no NCHP is 
+              !!please note that in the surface layer, no new materials enter Passive pool, therefore, no NCHP is
               !!calculated for the first layer.
               IF(k==1)THEN
                   CS=CS*PRMT_51
@@ -372,7 +373,7 @@
                       NCBM=1./(20.05-5.0251*X1)
                   ELSE
                       NCBM=.05
-                  END IF    
+                  END IF
                 6 NCHS=NCBM/(5.*NCBM+1.)
                   GO TO 2
               END IF
@@ -389,7 +390,7 @@
               IF(X1>7.15)THEN
                   NCBM=.33
                   NCHS=.083
-                  NCHP=.143       
+                  NCHP=.143
               ELSE
                   NCBM=1./(15.-1.678*X1)
                   NCHS=1./(20.-1.119*X1)
@@ -425,8 +426,8 @@
         !     ESTIMATE N DEMAND
               A1=1.-A1CO2
               ASX=1.-ASCO2-ASP
-              APX=1.-APCO2      
-                
+              APX=1.-APCO2
+
               PN1=LSLNCTP*A1*NCBM               !Structural Litter to Biomass
               PN2=.7*LSLCTP*NCHS               !Structural Litter to Slow
               PN3=LMCTP*A1*NCBM                 !Metabolic Litter to Biomass
@@ -436,7 +437,7 @@
               PN7=HSCTP*ASX*NCBM                !Slow to Biomass
               PN8=HSCTP*ASP*NCHP                !Slow to Passive
               PN9=HPCTP*APX*NCBM                !Passive to Biomass
- 
+
               !PN1=LSLNCTP*A1*NCBM
               !PN2=.7*LSLCTP*NCHS
               !PN3=LMCTP*A1*NCBM
@@ -468,7 +469,7 @@
                   CPN3=X1-BMNTP
               ELSE
                   SUM=SUM+BMNTP-X1
-              END IF      
+              END IF
               X1=PN7+PN8
               IF(HSNTP<X1)THEN
                   CPN4=X1-HSNTP
@@ -486,7 +487,7 @@
               !WMIN=MAX(1.E-5,sol_NO3(k,j) +SUM)
               !total demand for potential tranformaiton of SOM
               DMDN=CPN1+CPN2+CPN3+CPN4+CPN5
-              
+
               X3=1.
         !     REDUCE DEMAND IF SUPPLY LIMITS
               IF(WMIN<DMDN) then
@@ -532,8 +533,8 @@
               ELSE
                   HPCTA=HPCTP
                   HPNTA=HPNTP
-              END IF        
-           
+              END IF
+
               !Recalculate demand using actural transformations
               !revised from EPIC code by Zhang
                   PN1=LSLNCTA*A1*NCBM               !Structural Litter to Biomass
@@ -544,7 +545,7 @@
                   PN6=BMCTA*(1.-ABP-ABCO2)*NCHS     !Biomass to Slow
                   PN7=HSCTA*ASX*NCBM                !Slow to Biomass
                   PN8=HSCTA*ASP*NCHP                !Slow to Passive
-                  PN9=HPCTA*APX*NCBM                !Passive to Biomass              
+                  PN9=HPCTA*APX*NCBM                !Passive to Biomass
             !     COMPARE SUPPLY AND DEMAND FOR N
                   SUM=0.
                   CPN1=0.
@@ -568,7 +569,7 @@
                       CPN3=X1-BMNTA
                   ELSE
                       SUM=SUM+BMNTA-X1
-                  END IF      
+                  END IF
                   X1=PN7+PN8
                   IF(HSNTA<X1)THEN
                       CPN4=X1-HSNTA
@@ -585,9 +586,9 @@
                   WMIN=MAX(1.E-5,sol_NO3(k,j) + sol_NH3(k,j)+SUM)
                   !WMIN=MAX(1.E-5,sol_NO3(k,j) +SUM)
                  !total demand for potential tranformaiton of SOM
-                  DMDN=CPN1+CPN2+CPN3+CPN4+CPN5              
-                              
-                
+                  DMDN=CPN1+CPN2+CPN3+CPN4+CPN5
+
+
               !DMDN=DMDN*X3
               !SGMN=SGMN+SUM
               !supply - demand
@@ -597,18 +598,18 @@
                   sol_NH3(k,j)=sol_NH3(k,j)+sol_RNMN(k,j)
         !  	      WNO3(ISL)=WNO3(ISL)+RNMN(ISL)
                   GO TO 21
-              END IF      
+              END IF
 	          X1=sol_NO3(k,j)+sol_RNMN(k,j)
 	          IF(X1<0.)THEN
 	              sol_RNMN(k,j)=-sol_NO3(k,j)
 	              sol_NO3(k,j)=1.E-10
 	          ELSE
 	              sol_NO3(k,j)=X1
-              END IF   
+              END IF
            21 DF1=LSNTA
-            
+
               DF2=LMNTA
-	          !!DF represents Demand from   
+	          !!DF represents Demand from
 	          !SNMN=SNMN+sol_RNMN(k,j)
 
 	          !calculate P flows
@@ -620,11 +621,11 @@
               hmp = hmp_rate*sol_orgp(k,j)
               hmp = Min(hmp, sol_orgp(k,j))
               sol_orgp(k,j) = sol_orgp(k,j) - hmp
-              sol_solp(k,j) = sol_solp(k,j) + hmp	          
-	
-	          !! compute residue decomp and mineralization of 
-              !! fresh organic n and p (upper two layers only)  
-                rmp = 0.             
+              sol_solp(k,j) = sol_solp(k,j) + hmp
+
+	          !! compute residue decomp and mineralization of
+              !! fresh organic n and p (upper two layers only)
+                rmp = 0.
                 decr = 0.
                 decr = (LSCTA + LMCTA)/(sol_LSC(k,j) + sol_LMC(k,j) + 1.e-6)
                 decr = min(1., decr)
@@ -632,10 +633,10 @@
 
                 sol_fop(k,j) = sol_fop(k,j) - rmp
                 sol_solp(k,j) = sol_solp(k,j) + .8 * rmp
-                sol_orgp(k,j) = sol_orgp(k,j) + .2 * rmp	          
+                sol_orgp(k,j) = sol_orgp(k,j) + .2 * rmp
 	          !calculate P flows
-       
-	          
+
+
 	          !SMS(9,ISL)=SMS(9,ISL)+RNMN(ISL)
 	          LSCTA = Min(sol_LSC(k,j),LSCTA)
               sol_LSC(k,j)=MAX(1.E-10,sol_LSC(k,j)-LSCTA)
@@ -652,12 +653,12 @@
               !sol_LM(k,j)=MAX(1.E-10,sol_LM(k,j)-LMCTA/.42)
               sol_LSL(k,j)=MAX(1.E-10,sol_LSL(k,j)-LSLCTA/.42)
               sol_LS(k,j)=MAX(1.E-10,sol_LS(k,j)-LSCTA/.42)
-              
+
               X3=APX*HPCTA+ASX*HSCTA+A1*(LMCTA+LSLNCTA)
               sol_BMC(k,j)=sol_BMC(k,j)-BMCTA+X3
               !DeltaBMC = DeltaBMC -BMCTA+X3
               DF3=BMNTA-NCBM*X3
-              !!DF3 is the supply of BMNTA - demand of N to meet the Passive, Slow, Metabolic, and Non-lignin Structural 
+              !!DF3 is the supply of BMNTA - demand of N to meet the Passive, Slow, Metabolic, and Non-lignin Structural
               !! C pools transformaitons into microbiomass pool
               X1=.7*LSLCTA+BMCTA*(1.-ABP-ABCO2)
               sol_HSC(k,j)=sol_HSC(k,j)-HSCTA+X1
@@ -684,23 +685,23 @@
               sol_HSN(k,j)=sol_HSN(k,j)-DF4+XX*ADF4
               sol_HPN(k,j)=sol_HPN(k,j)-DF5+XX*ADF5
               sol_RSPC(k,j)=.3*LSLCTA+A1CO2*(LSLNCTA+LMCTA)+ABCO2*BMCTA+ASCO2*HSCTA+APCO2*HPCTA
-              rspc_d(j) = rspc_d(j) +  sol_RSPC(k,j) 
+              rspc_d(j) = rspc_d(j) +  sol_RSPC(k,j)
               !SMM(74,MO)=SMM(74,MO)+RSPC(ISL)
               !SMS(8,ISL)=SMS(8,ISL)+RSPC(ISL)
-              !TRSP=TRSP+RSPC(ISL)      
+              !TRSP=TRSP+RSPC(ISL)
               !VAR(74)=VAR(74)+RSPC(ISL)
-              !RSD(ISL)=.001*(WLS(ISL)+WLM(ISL)) 
-              sol_rsd(k,j)= sol_LS(k,j)+sol_LM(k,j)            
+              !RSD(ISL)=.001*(WLS(ISL)+WLM(ISL))
+              sol_rsd(k,j)= sol_LS(k,j)+sol_LM(k,j)
               sol_orgn(k,j) = sol_HPN(k,j)
               sol_aorgn(k,j) = sol_HSN(k,j)
-              sol_fon(k,j) = sol_LMN(k,j) + sol_LSN(k,j) 
-              sol_cbn(k,j) = 100*(sol_LSC(k,j)+sol_LMC(k,j) +sol_HSC(k,j) + sol_HPC(k,j) + sol_BMC(k,j))/sol_mass    
- 
+              sol_fon(k,j) = sol_LMN(k,j) + sol_LSN(k,j)
+              sol_cbn(k,j) = 100*(sol_LSC(k,j)+sol_LMC(k,j) +sol_HSC(k,j) + sol_HPC(k,j) + sol_BMC(k,j))/sol_mass
 
- 
+
+
 !! septic changes 1/28/09 gsm
 !!  compute denitrification while simulating septic tank
-      !wdn = 0.   
+      !wdn = 0.
 	  !if (i_sep(j) /= k .and. ipop_sep(j) > 0) then
           !! compute soil water factor
       !    sut = 0.
@@ -715,7 +716,7 @@
       !    xx = sol_tmp(kk,j)
       !    cdg = .9 * xx / (xx + Exp(9.93 - .312 * xx)) + .1
       !    cdg = Max(.1, cdg)
-          
+
 	  !  if (sut >= sdnco) then
 	  !    wdn = sol_no3(k,j) * (1. - Exp(-cdn * cdg * sol_cbn(k,j)))
 	  !  else
@@ -783,7 +784,7 @@
 	!!	end if
 
           !! summary calculations
-          !! calculations are based on century model, and not alighned with SWAT old algorithm yet. 
+          !! calculations are based on century model, and not alighned with SWAT old algorithm yet.
           if (curyr > nyskip) then
             hmn = 0.
             hmn = sol_RNMN(k,j)
@@ -791,7 +792,7 @@
             rwn = 0.
             rwn = HSNTA
             wshd_rwn = wshd_rwn + rwn * hru_dafr(j)
-            
+
             wshd_hmp = wshd_hmp + hmp * hru_dafr(j)
             rmn1 = 0.
             rmn1 = (LSNTA+LMNTA)
@@ -805,10 +806,10 @@
             rmptl = rmptl + rmp
             wdntl = wdntl + wdn
           end if
-          
-          
 
-              	  
+
+
+
         end if
 
     end do

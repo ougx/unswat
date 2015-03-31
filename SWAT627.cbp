@@ -8,7 +8,7 @@
 		<Build>
 			<Target title="Debug">
 				<Option output="bin/Debug/SWAT627" prefix_auto="1" extension_auto="1" />
-				<Option working_dir="D:/@Workspace/Okalahoma_Little_Washita_Single_HRU/CAlibration_PEST/TxtInOut20150224" />
+				<Option working_dir="F:/@Workspace/john_model/TxtInOut" />
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gfortran" />
@@ -33,9 +33,8 @@
 			</Target>
 		</Build>
 		<Compiler>
-			<Add option="-ffree-line-length-none" />
-			<Add option="-ffixed-line-length-none" />
 			<Add option="-Wall" />
+			<Add option="-ffpe-trap=invalid,zero,overflow" />
 		</Compiler>
 		<Unit filename="modflow_scr/utl7.f">
 			<Option weight="1" />
@@ -85,7 +84,7 @@
 		<Unit filename="rev627_source/biofilm.f">
 			<Option weight="1" />
 		</Unit>
-		<Unit filename="rev627_source/biozone.f">
+		<Unit filename="rev627_source/biozone.f90">
 			<Option weight="1" />
 		</Unit>
 		<Unit filename="rev627_source/bmp_det_pond.f">
@@ -94,7 +93,7 @@
 		<Unit filename="rev627_source/bmp_ri_pond.f">
 			<Option weight="1" />
 		</Unit>
-		<Unit filename="rev627_source/bmp_sand_filter.f">
+		<Unit filename="rev627_source/bmp_sand_filter.f90">
 			<Option weight="1" />
 		</Unit>
 		<Unit filename="rev627_source/bmp_sed_pond.f">
@@ -106,7 +105,7 @@
 		<Unit filename="rev627_source/bmpfixed.f">
 			<Option weight="1" />
 		</Unit>
-		<Unit filename="rev627_source/bmpinit.f">
+		<Unit filename="rev627_source/bmpinit.f90">
 			<Option weight="1" />
 		</Unit>
 		<Unit filename="rev627_source/buffer.f">
@@ -394,7 +393,7 @@
 		<Unit filename="rev627_source/origtile.f">
 			<Option weight="1" />
 		</Unit>
-		<Unit filename="rev627_source/ovr_sed.f">
+		<Unit filename="rev627_source/ovr_sed.f90">
 			<Option weight="1" />
 		</Unit>
 		<Unit filename="rev627_source/percmacro.f">
@@ -676,7 +675,7 @@
 		<Unit filename="rev627_source/rthr.f">
 			<Option weight="1" />
 		</Unit>
-		<Unit filename="rev627_source/rthsed.f">
+		<Unit filename="rev627_source/rthsed.f90">
 			<Option weight="1" />
 		</Unit>
 		<Unit filename="rev627_source/rtmusk.f">

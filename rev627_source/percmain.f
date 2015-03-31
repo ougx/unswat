@@ -1,5 +1,5 @@
       subroutine percmain
-      
+
 !!    ~ ~ ~ PURPOSE ~ ~ ~
 !!    this subroutine is the master soil percolation component.
 
@@ -18,14 +18,14 @@
 !!    drainmod tile equations   01/2006
 !!    itdrn       |none          |tile drainage equations flag/code
 !!                               |1 simulate tile flow using subroutine drains(wt_shall)
-!!                               |0 simulate tile flow using subroutine origtile(wt_shall,d) 
+!!                               |0 simulate tile flow using subroutine origtile(wt_shall,d)
 !!    iwtdn       |none          |water table depth algorithms flag/code
 !!                               |1 simulate wt_shall using subroutine new water table depth routine
-!!                               |0 simulate wt_shall using subroutine original water table depth routine  
+!!                               |0 simulate wt_shall using subroutine original water table depth routine
 !!    ismax       |none          |maximum depressional storage selection flag/code
-!!                               |1 dynamic stmaxd computed as a function of random roughness and rain intensity 
+!!                               |1 dynamic stmaxd computed as a function of random roughness and rain intensity
 !!                               |by depstor.f
-!!                               |0 static stmaxd read from .bsn for the global value or .sdr for specific hrus                 
+!!                               |0 static stmaxd read from .bsn for the global value or .sdr for specific hrus
 !!    drainmod tile equations   01/2006
 !!    sol_fc(:,:) |mm H2O        |amount of water available to plants in soil
 !!                               |layer at field capacity (fc - wp)
@@ -49,12 +49,12 @@
 !!    new water table depth  equations   01/2009
 !!    flat(:,:)   |mm H2O        |lateral flow storage array
 !!    latlyr      |mm H2O        |lateral flow in soil layer for the day
-!!    latq(:)     |mm H2O        |total lateral flow in soil profile for the 
+!!    latq(:)     |mm H2O        |total lateral flow in soil profile for the
 !!                               |day in HRU
 !!    lyrtile     |mm H2O        |drainage tile flow in soil layer for day
 !!    new water table depth  equations   01/2009
-!!	ne_p		|mm/hr		   |effective porosity in HRU for all soil profile layers 
-!!	ne_w		|mm/hr		   |effective porosity in HRU for soil layers above wtd 
+!!	ne_p		|mm/hr		   |effective porosity in HRU for all soil profile layers
+!!	ne_w		|mm/hr		   |effective porosity in HRU for soil layers above wtd
 !!    new water table depth  equations   01/2009
 !!    qtile       |mm H2O        |drainage tile flow in soil profile for the day
 !!    sepday      |mm H2O        |micropore percolation from soil layer
@@ -105,41 +105,41 @@
       end if
 
 !!  add irrigation water
-	if (aird(j)>0) then
-	  j=j
-	end if
+      if (aird(j)>0) then
+        j=j
+      end if
       sepday = inflpcp + aird(j) + pot_seep(j)
       pot_seep(j) = 0.
-      
+
 !! if unlimted, or groundwater source reset aird here (otherwise in virtual)
 !!  change per JGA 10/12/11 irrigation problem with reach
 !!	if (irrsc(j) > 2)  aird(j) = 0.
 !!      aird(j) = 0.
 
-      !! calculate crack flow 
-      if (icrk == 1) then 
-	    call percmacro
-	    sepday = sepday - sepcrktot
-	  endif
+      !! calculate crack flow
+      if (icrk == 1) then
+        call percmacro
+        sepday = sepday - sepcrktot
+      endif
 
       do j1 = 1, sol_nly(j)
         !! add water moving into soil layer from overlying layer
         sol_st(j1,j) = sol_st(j1,j) + sepday
-        
+
  	  !! septic tank inflow to biozone layer  J.Jeong
-	  ! STE added to the biozone layer if soil temp is above zero. 
-	  if(j1==i_sep(j).and.sol_tmp(j1,j) > 0. .and. isep_opt(j) /= 0) then
-		  sol_st(j1,j) = sol_st(j1,j) + qstemm(j)  ! in mm
-	    qvol = qstemm(j) * hru_ha(j) * 10.
-		  xx = qvol / hru_ha(j) / 1000.
-          sol_no3(j1,j) = sol_no3(j1,j) + xx *(sptno3concs(isp) 
-     &                    + sptno2concs(isp))  
-          sol_nh3(j1,j) = sol_nh3(j1,j) + xx * sptnh4concs(isp) 
+	  ! STE added to the biozone layer if soil temp is above zero.
+      if(j1==i_sep(j).and.sol_tmp(j1,j)>0. .and. isep_opt(j) /= 0) then
+        sol_st(j1,j) = sol_st(j1,j) + qstemm(j)  ! in mm
+        qvol = qstemm(j) * hru_ha(j) * 10.
+        xx = qvol / hru_ha(j) / 1000.
+          sol_no3(j1,j) = sol_no3(j1,j) + xx *(sptno3concs(isp)
+     &                    + sptno2concs(isp))
+          sol_nh3(j1,j) = sol_nh3(j1,j) + xx * sptnh4concs(isp)
           sol_orgn(j1,j) = sol_orgn(j1,j) + xx * sptorgnconcs(isp)*0.5
           sol_fon(j1,j) = sol_fon(j1,j) + xx * sptorgnconcs(isp) * 0.5
           sol_orgp(j1,j) = sol_orgp(j1,j) + xx * sptorgps(isp) * 0.5
           sol_fop(j1,j) = sol_fop(j1,j) + xx * sptorgps(isp) * 0.5
-          sol_solp(j1,j) = sol_solp(j1,j) + xx * sptminps(isp)  
+          sol_solp(j1,j) = sol_solp(j1,j) + xx * sptminps(isp)
         end if
 
        !! determine gravity drained water in layer
@@ -178,10 +178,10 @@
         if (qtile < 1.e-6) qtile = 0.
         if (flat(j1,j) < 1.e-6) flat(j1,j) = 0.
       end do
-      
+
         !! seepage contribution by urban distributed bmps
         if (ievent >= 2) then
-          sepbtm(j) = sepbtm(j) + bmp_recharge(sb) 
+          sepbtm(j) = sepbtm(j) + bmp_recharge(sb)
         endif
 
       !! update soil profile water
@@ -225,8 +225,8 @@
              sw_del = sol_swpwt(j) - sol_sw(j)
              wt_del = sw_del * vwt(j1,j)
              wtst_del = swst_del * vwt(j1,j)
- !            wat_tbl(j) = wat_tbl(j) + wt_del 
-             wat_tbl(j) = wat_tbl(j) + wtst_del  
+ !            wat_tbl(j) = wat_tbl(j) + wt_del
+             wat_tbl(j) = wat_tbl(j) + wtst_del
              if(wat_tbl(j) < 0.0) wat_tbl(j) = 0.0
 	       if(wat_tbl(j) > dep_imp(j)) wat_tbl(j) = dep_imp(j)
 	       wt_shall = dep_imp(j) - wat_tbl(j)
@@ -238,19 +238,19 @@
 	    end do
         end if
         !! drainmod wt_shall equations   10/23/2006
-        
+
         if (ddrain(j) > 0.) then
           if (wt_shall <= d) then
             qtile = 0.
           else
             !! Start Daniel's tile equations modifications  01/2006
             if (itdrn == 1) then
-              call drains     ! compute tile flow using drainmod tile equations 
+              call drains     ! compute tile flow using drainmod tile equations
               !! drainmod tile equations   01/2006
             else !! compute tile flow using existing tile equations
-              call origtile(d)! existing tile equations 
+              call origtile(d)! existing tile equations
 	        if(qtile < 0.) qtile=0.
-            end if 
+            end if
           end if
         end if
       end if

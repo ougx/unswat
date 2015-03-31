@@ -73,6 +73,9 @@ subroutine TRS(k)
 
 !~~~~~~~~~~~~~~~start daily variables (not change in the sobroutine)~~~~~~~~~~~~~~~~~~~
 
+
+  !
+  !if (k /= 184) return
   rchrg(k) = ZERO
 
   scol=>SOLCOL(k)
@@ -88,10 +91,10 @@ subroutine TRS(k)
   !subroutine SOLCOL_Initialize_WatFlow(kHRU,N,DZ,DZ2,H,HD,WC,K,CAP,FZN,H1m,HB,qUB,SRT,SL,qNET)
   !call SOLCOL_Initialize_WatFlow(kHRU,nNOD,WCSTOR0,DZ,DZ2,HOLD,HDERI0,WCOLD,K1,CAP,FROZEN,HATM,HBUB,QURBAN,SROOT0,SLAT0,qNETt)
 
-  if (scol%IHATM==2) then !soil evaporation will be limited by atmosphere condition
+  if (scol%IHATM==0) then !soil evaporation will be limited by atmosphere condition
 
     !HMIN should be selected such so that the effective water content is at least higher than 0.05.
-    !HMIN (S=0.05) is stored as scol%HCRIT when scol%IHATM==2
+    !HMIN (S=0.05) is stored as scol%HCRIT when scol%IHATM==0
     !It should also be lower (when negative) than P3 when the root water uptake is considered.
     !When both limits for root water uptake (P3) and evaporation (HMIN) are reached,
     !HMIN>P3 leads to inflow since it controls the flux across the boundary.
@@ -134,7 +137,10 @@ subroutine TRS(k)
   call SOLCOL_Update_Node_h(k,nun+1,ntot,hh((nun+1):ntot))
 
   !call bottom_pressure(k,ntot,nun,DZ,dzgw,scol%DEPGW)
-
+  
+  
+  write (IFDEBUG,*) ""
+  write (IFDEBUG,*) " RUNNING ROSS FOR HRU ",k, " YEAR ", curyr, " DAY ", iida
 
 #ifdef debugMODE
   !call print_var(IFPROFILE,nun,SOLCOL(k)%var,iyr+iida/1000.)
