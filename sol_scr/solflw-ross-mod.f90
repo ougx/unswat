@@ -2006,7 +2006,7 @@ contains
               !!calculate the composite w
               !y = 0.5*(y1 + y2) * dz(i) / (v%h - vp%h + dz(i)) - vp%K
               !w = y / (v%K-vp%K)
-              !if (w < 0.) then 
+              !if (w < 0.) then
               !  w = 0.5
               !end if
               !write(IFDEBUG, *) "  Composite W: ", w
@@ -2483,12 +2483,13 @@ contains
     integer, intent(inout)	::	nu
 
     real :: depbot
-    depbot = sum(dz(1:nu))
+    depbot = SOLCOL(k)%DEPBOT
     depgw=SOLCOL(k)%DEPGWREF-shallst(k)/gw_spyld(k)
     dzgw= depbot - depgw
     if (depgw<0.0) then
       call USTOP(' ')
     endif
+    nu = n
   end subroutine
 
 
@@ -3443,10 +3444,10 @@ subroutine readsoilcol(IFIN, k)
 
 
 
-  call searchgw(k,NNOD,NUNS,DZ,dzgw,HEAD,scol%DEPGW)
+  !call searchgw(k,NNOD,NUNS,DZ,dzgw,HEAD,scol%DEPGW)
 
 
-  !call bottom_pressure(k,NNOD,NUNS,DZ,dzgw,scol%DEPGW)
+  call bottom_pressure(k,NNOD,NUNS,DZ,dzgw,scol%DEPGW)
 
   select case(IINIT)
     case(1)
