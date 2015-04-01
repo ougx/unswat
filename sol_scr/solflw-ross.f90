@@ -132,11 +132,11 @@ subroutine TRS(k)
   DZ(1:ntot)=scol%DZ(1:ntot)
 
 
-  !call searchgw(k,ntot,nun,DZ,dzgw,hh,scol%DEPGW)
+  call searchgw(k,ntot,nun,DZ,dzgw,hh,scol%DEPGW)
 
-  !call SOLCOL_Update_Node_h(k,nun+1,ntot,hh((nun+1):ntot))
+  call SOLCOL_Update_Node_h(k,nun+1,ntot,hh((nun+1):ntot))
 
-  call bottom_pressure(k,ntot,nun,DZ,dzgw,scol%DEPGW)
+  !call bottom_pressure(k,ntot,nun,DZ,dzgw,scol%DEPGW)
 
 
   write (IFDEBUG,*) ""

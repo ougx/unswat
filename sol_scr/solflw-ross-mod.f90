@@ -3444,10 +3444,10 @@ subroutine readsoilcol(IFIN, k)
 
 
 
-  !call searchgw(k,NNOD,NUNS,DZ,dzgw,HEAD,scol%DEPGW)
+  call searchgw(k,NNOD,NUNS,DZ,dzgw,HEAD,scol%DEPGW)
 
 
-  call bottom_pressure(k,NNOD,NUNS,DZ,dzgw,scol%DEPGW)
+  !call bottom_pressure(k,NNOD,NUNS,DZ,dzgw,scol%DEPGW)
 
   select case(IINIT)
     case(1)
