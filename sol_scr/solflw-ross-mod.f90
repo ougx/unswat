@@ -116,6 +116,25 @@ module ROSSMOD
     !   ----------------END OF TABULATION DATA----------------   !
   end type SOILMAT
 
+    !irrigation well definition
+  type  :: IRRIWELL
+    integer                     ::  ihru                    !
+    integer                     ::  col                     !
+    integer                     ::  row                     !
+    integer                     ::  lay                     !
+    integer                     ::  istart                  !stress period well activated
+    integer                     ::  iend                    !stress period well deacticated
+    integer                     ::  way                     !trigger method, 1 soil water content 2 plant water stress 3 maximum of the two
+    real                        ::  cap                     !capacity
+    real                        ::  eff                     !efficiency
+    real                        ::  area                    !irrigated area
+    real                        ::  theta                   !therethold water content
+    real                        ::  q                       !pumping rate
+    real                        ::  qtot                    !pumping volume
+    real                        ::  dt                      !time to water soil when it drops bwloe threthold. the shorter the more intense the irrigation rate will be (day)
+  end type
+
+
   type SOILCOLUMN
     integer(1)          ::  Lay1_split 		!whether the first layer is splite because 10 mm limit: 1: yse, 0: no split
     integer             ::  IPRINT 		    !print the soil profile or not: 1: yse, 0: no
@@ -125,6 +144,7 @@ module ROSSMOD
     integer             ::  NLAY    		!number of soil layer and aquifer layers (physical layer)
     integer             ::  NNOD    			!number of total layers of the column (calculation layer)
     integer             ::  NUNS   				!number of unsaturated soil layers
+
 
     !integer(1)          ::  ITOPTYPE  		!method used to define top boundary 1 Neuman's method 2 Fisrt Order Exchange Coefficient method
     real     						::  FACFROZN			!factor used to multiply hydraulic conductivity when the soil is frozen
@@ -239,16 +259,17 @@ module ROSSMOD
     real     						::  POV       		!overland flow parameter = sqrt(slope)/n/L*36
 
 
-    !real     ::  QLATOUT(:)  !lateral outflow of each layer, mm/hr
-    !real     						::  QINOUT(20)  !used for mass balance computation, mm/hr
+    integer             ::  nwel   				!number of irrigation wells in the hru
     real, allocatable   ::  WC(:)   		!water content
     real, allocatable   ::  QSUM(:)   		!
 
+    type(IRRIWELL),allocatable:: wel(:)
     type(vars),   allocatable :: var(:)
   end type SOILCOLUMN
 
   save
   integer	::	nmat	!# of soil materials
+  integer	::	mwel	!# of irrigation wellls
   integer	::	nless
   integer ::  nsob  !# of observation points
   integer	::	slogfile	!file number for message logs
@@ -260,6 +281,7 @@ module ROSSMOD
   integer ::  IFLAY           !file number for soil water layer
   integer ::  IFDEBUG					!file number for debug info
   integer ::  IFDIS					  !file number for soil discretization
+  integer ::  IFWEL					  !file number for well pumpage results
   type(SOILCOLUMN), target, allocatable :: SOLCOL(:)
   type(SOILMAT),    target, allocatable :: SOLMAT(:)
 
@@ -1099,7 +1121,7 @@ contains
 
 
   SUBROUTINE solve(k,tts,ttfin,qprec,qevap,n,dx,jt,hqmin,hETmin,hbot,h0,Kd,Ku,var,fzn,snl,kappa,evap,runoff,infil,drn, &
-      qsum,sicum,socum,srcum,dtmin,dtmax,dSmax,dSmaxr,dSfac,dpmaxr,lowgw)
+      irritot,qsum,sicum,socum,srcum,dtmin,dtmax,dSmax,dSmaxr,dSfac,dpmaxr,lowgw)
     use parm, only: shallst
     IMPLICIT NONE
     INTEGER,INTENT(IN)::k,n,jt(n)
@@ -1108,7 +1130,7 @@ contains
     REAL,INTENT(IN)::dx(n),fzn(n)
     TYPE(vars),DIMENSION(n),TARGET,INTENT(INOUT)::var
     !INTEGER,INTENT(INOUT)::msteps
-    REAL, INTENT(INOUT)::h0,evap,runoff,infil,drn
+    REAL, INTENT(INOUT)::h0,evap,runoff,infil,drn,irritot
     REAL,DIMENSION(0:n), INTENT(INOUT)::qsum
     REAL,DIMENSION(n), INTENT(INOUT)::sicum,socum,srcum
     REAL, intent(in)::snl   !OGX: slope/ n/ L_s; Manning's equation to calculate the overland flow
@@ -1189,7 +1211,7 @@ contains
     REAL::qhov  !OGX: derivative of q_ov WRT h_0
     REAL::qov   !OGX: overland flow/L_s, q_surf in the paper
     real::S0,Sn !OGX: top and bottom effective saturation
-    real::tfin
+    real::tfin,irri
     !TYPE(vars)::v0et  !OGX
     logical :: limitET, SatEx
     REAL,DIMENSION(n)::sli,slo,srt,qex
@@ -1272,9 +1294,12 @@ contains
     !----- solve until tfin
 
     !str0=sum((SOLMAT(jt)%WCS-SOLMAT(jt)%WCSR*(1.0-S))*dx)
-    qpme=qprec-qevap ! input rate
     nsat = sum(var%isat)
+    !qprec0 = qprec
     do while (t<tfin)
+      call SetSS(k,n,S,dx,qprec,slo,sli,srt,irri)
+      qprec1 = qprec + irri
+      qpme=qprec1-qevap ! input rate
 
       !----- take next time step
       do iflux=1,2 ! sometimes need twice to adjust phi at satn
@@ -1453,7 +1478,6 @@ contains
         !							 !where (var%isat==0) thf=abs(q(1:n)-q(0:n-1)-qex)/(SOLMAT(jt)%WCSR*dx)
         !							else
         qex=zero
-        call SetSS(k,n,S,dx,slo,sli,srt)
         qex=slo-sli+srt   !!OGX: mm/hr
 
 #ifdef debugMODE
@@ -1715,7 +1739,7 @@ contains
 
           if (limitET) then
             !et = rain + upward
-            et = qprec*dt-dwinfil
+            et = qprec1*dt-dwinfil
             if (et > zero) then
               evap=evap + et
             else
@@ -1725,7 +1749,7 @@ contains
 #ifdef debugMODE
             !examine if there is negative ET (infilrtation) in very dry condition
             if(evap<0) then
-              write (IFDEBUG,"(A,F15.5)") "NEGATIVE ET, et",qprec*dt-dwinfil
+              write (IFDEBUG,"(A,F15.5)") "NEGATIVE ET, et",qprec1*dt-dwinfil
               write (IFDEBUG,"(A,F15.5)") "NEGATIVE ET, qpme",qpme
               write (IFDEBUG,"(A,3F15.5)") "H of top 3 layer:",MAT_S2H(jt(1:3),S(1:3))
               write (IFDEBUG,"(A,3F15.5)") "dx of top 3 layer:",dx(1:3)
@@ -1752,6 +1776,10 @@ contains
           srcum=srcum+srt*dt
           sicum=sicum+sli*dt
           socum=socum+slo*dt
+          if (SOLCOL(k)%nwel > 0) then
+            SOLCOL(k)%wel%qtot = SOLCOL(k)%wel%qtot + SOLCOL(k)%wel%q * dt
+            irritot = irritot + irri * dt
+          endif
 
 
         end if
@@ -1827,8 +1855,8 @@ contains
         write(IFDEBUG,"(A,8I10)")   "lines           ", dtline(1:8)
         write(IFDEBUG,"(A,8G10.2)") "fac             ", facc(1:8)
         write(IFDEBUG,"(A,9G10.2)") "dt    ", dt0(0:8)
-        write(IFDEBUG,*) "The 24h precipitation rate is", qprec
-        call print_var(IFPROFILE,k,n,var,(t+tts)/24.,shallst(k),S*SOLMAT(jt)%WCSR,dx,qsum)
+        write(IFDEBUG,*) "The 24h precipitation rate is", qprec1
+        call print_var(IFPROFILE,k,n,var,(t+tts)/24.,hbot,S*SOLMAT(jt)%WCSR,dx,qsum)
 
         write (IFDEBUG,"(//,3A10, 8A15)")  &
           "HRU","time","isat","dx","pressure","moisture","saturation","hydraulicK", "phi", "SRoot","SLat"
@@ -2350,95 +2378,6 @@ contains
     END SUBROUTINE fluxsuf
   END SUBROUTINE flux
 
-  subroutine SetSS(k,n,S,DZ,SLout,SLin,SRT)
-    !set up the sorce and sink
-    !N    ~ node number of unsaturated zone and the virtual node
-    !H    ~ pressure head of each node
-    !WC0  ~ initial water content of each node
-    !WC0  ~ updated water content of each node
-    !SLout~ lateral outflow, mm/hr
-    !SLin ~ lateral inflow, mm/hr
-    !SRT  ~ root uptake, mm/hr
-
-    use parm, only: ubw, hru_slp, slsoil
-    implicit none
-    integer, intent(in) :: k, n
-    real, intent(in) :: S(n)
-    real, dimension(n), intent(in)	:: DZ
-    real, dimension(n), intent(out)	:: SLout,SLin,SRT
-
-    !!local variables
-    integer :: iLAY, i, iSTEP, j, iTMP0, iTMP1, nNOD, nNODm1
-    real ::  r0,r1,dep, top
-    real ::  WC, AWC, WCFC, WCSAT, WCWP,SSURF, LSOIL, EPMAX, DEPRT, WUP, WDN, CON, ROOTMAX
-    type(SOILMAT), pointer :: mat
-
-
-    LSOIL=slsoil(k)        !soil slope length, used in subsurface lateral flow calculation, m
-    SSURF=hru_slp(k)       !hru surface slope
-    EPMAX=SOLCOL(k)%EPMAX  !maximum transpiration rate, mm/hr
-    DEPRT=SOLCOL(k)%DEPROT	!depth of root
-    ROOTMAX=SOLCOL(k)%DEPRZONE
-    !compute source and sink (the S term)
-    SLin=zero
-    SLout=zero
-    SRT=zero
-    if (SOLCOL(k)%QLATIN>0.0) then
-      r0=SOLCOL(k)%QLATIN/min(sum(DZ),ROOTMAX)  !lateral inflow
-      SLin=DZ*r0
-    endif
-
-    WDN=zero
-    dep=zero
-    top = zero
-    do i=1, n !lateral outflow and root uptake
-      j=SOLCOL(k)%jt(i)
-      mat=>SOLMAT(j)
-      !if (iLAY>sol_nly(k)) exit !not calculate deep root?
-      WCWP = mat%WCWP
-      AWC=  mat%WCAWC
-      WCFC= mat%WCFC
-      WCSAT=mat%WCS
-
-      WC=MAT_S2WC(j,S(i))
-      !DTMP=WCNEW(i)
-
-      !!  unsaturated lateral flow, perched water table
-      !!  COMPUTE LATERAL FLOW USING HILLSLOPE STORAGE METHOD
-      if (WC>WCFC) then   !not including saturated zone
-        CON=MAT_S2K(j,S(i))
-        SLout(i)=0.001*2.0*DZ(i)*CON*(WC-WCFC)*SSURF/((WCSAT-WCFC)*LSOIL)  !unit is mm/hr
-      endif
-
-      if (SLout(i)<CLOSEZERO) SLout(i)=zero
-
-      !root water uptake.
-      WUP=WDN
-      dep=dep+DZ(i)
-      if (top<DEPRT .and. WC>WCWP) then
-        AWC=0.25*AWC
-        WDN=EPMAX/(1-exp(-ubw))*(1-exp(-ubw*min(dep,DEPRT)/DEPRT))  !ubw: water uptake distribution parameter
-        if (WC<AWC) then
-          SRT(i)=(WDN-WUP)*exp(5.0*(WC/AWC-ONE))
-        else
-          SRT(i)=(WDN-WUP)
-        endif
-      else
-        SRT(i)=zero
-      endif
-      if (SRT(i)<CLOSEZERO) SRT(i)=zero
-      if (dep>ROOTMAX) exit !not exceed the root zone
-      top = dep
-    enddo
-
-    if (DEPRT>dep) then !root possibly extends to saturated zone
-      WDN=EPMAX
-      SRT(n)=WDN-WUP
-
-    endif
-
-  end subroutine SetSS
-
 
   subroutine setsaturation(dz,dzgw,var,j,wc)
     !recalculate the water content for the cell intersected by groundwater table
@@ -2487,7 +2426,7 @@ contains
     depgw=SOLCOL(k)%DEPGWREF-shallst(k)/gw_spyld(k)
     dzgw= depbot - depgw
     if (depgw<0.0) then
-      call USTOP(' ')
+    write(slogfile ,"(A,I3,A,F10.4,A)") ' GROUNDWATER LEVEL DROPS BELOW THE SOIL FILE BOTTOM ', k, ' WITH ', -depgw, ' BELOW.'
     endif
     nu = n
   end subroutine
@@ -2549,6 +2488,8 @@ contains
       h(i)=dep-0.5*dz(i)-depgw	!hydraulic head at the center of a cell
     enddo
 
+
+    call SOLCOL_Update_Node_h(k,nu+1,n,h((nu+1):n))
   end subroutine searchgw
 
   subroutine searchgw0(k,n,nu,dz,dzgw,h,depgw)
@@ -2756,14 +2697,14 @@ contains
     end do
   END SUBROUTINE tri
 
-  subroutine FinalizeDayUN(k,nun,NNOD,runoff,qub,qsum,evap,sicum,socum,srcum)
+  subroutine FinalizeDayUN(k,nun,NNOD,runoff,qub,qsum,evap,sicum,socum,srcum,irritot)
     use parm
     !, only: es_day,snoev,sol_sw,sol_st,flat,rchrg,revapday,ep_day,ep_max, &
       !								sno3up,sol_sumfc,sol_sumul,strsa,latq,mstep, strsw, &
       !								isep_opt,bz_perc,sol_prk,i_sep,sol_nly,sol_no3,hru_dafr,hhqday
     implicit none
     integer, intent(in)		::	k,nun,NNOD
-    real, intent(in)			::	evap
+    real, intent(in)			::	evap, irritot
     real, intent(in)			::	runoff(mstep),qub(mstep)
     real, intent(in)			::	qsum(0:NNOD),sicum(NNOD),socum(NNOD),srcum(NNOD)
 
@@ -2812,6 +2753,15 @@ contains
       rchrg(k)=0.
       revapday=-qsum(nun)
     endif
+
+    !3.a remove irrigation water from groundwater storage
+    if (shallst(k)>irritot) then
+      shallst(k) = shallst(k) - irritot
+    else
+      deepst(k) = deepst(k) - irritot + shallst(k)
+      shallst(k) = 0.
+    endif
+    !if (deepst(k)<0.) call USTOP('EMPTY GROUNDWATER STORAGE BY IRRIGATION USAGE')
 
     !4.lateral in and out flow, & percolation array
     do l=1, sol_nly(k)
@@ -3155,6 +3105,10 @@ subroutine readsoilcol(IFIN, k)
   NLAY=scol%NLAY
 
 
+  !call URDCOM(IFIN,slogfile,sLine)
+  !iLoc=1
+  !call URWORD(sLine,iLoc,iStart,iStop,2,scol%nwel,r0,slogfile,IFIN) !# of irrigation wells
+  scol%nwel = 0
 
   call URDCOM(IFIN,slogfile,sLine)
   iLoc=1
@@ -3343,6 +3297,26 @@ subroutine readsoilcol(IFIN, k)
   endif
 
 
+  if (scol%nwel > 0) then
+    allocate(scol%wel(scol%nwel))
+    r1 = hru_fr(k) * sub_km(i)
+    do  l = 1, scol%nwel
+      call URDCOM(IFIN,slogfile,sLine)
+      iLoc=1
+      !read(iin, *) ih,ip1,ip2,way,cap,eff,area,theta1
+      call URWORD(sLine,iLoc,iStart,iStop,2,scol%wel(l)%istart,r0,slogfile,IFIN)    !
+      call URWORD(sLine,iLoc,iStart,iStop,2,scol%wel(l)%iend,r0,slogfile,IFIN)    !
+      call URWORD(sLine,iLoc,iStart,iStop,2,scol%wel(l)%way,r0,slogfile,IFIN)    !
+      call URWORD(sLine,iLoc,iStart,iStop,3,iTmp,r2,slogfile,IFIN)    !m3/day
+      call URWORD(sLine,iLoc,iStart,iStop,3,iTmp,scol%wel(l)%eff,slogfile,IFIN)    !
+      call URWORD(sLine,iLoc,iStart,iStop,3,iTmp,scol%wel(l)%area,slogfile,IFIN)    !fraction of hru area
+      call URWORD(sLine,iLoc,iStart,iStop,3,iTmp,scol%wel(l)%theta,slogfile,IFIN)    !fraction of AWC to maintain
+      call URWORD(sLine,iLoc,iStart,iStop,3,iTmp,scol%wel(l)%dt,slogfile,IFIN)    !irrigation time
+      scol%wel(l)%cap = r2 / r1 /24000.   !mm/hr for the hru
+      scol%wel(l)%dt = scol%wel(l)%dt * 24.
+    enddo
+  endif
+
   !calculate the first layer Hmin of control ET, convert HCRIT to pressure
   j=jt_lay(1)
   r1 = min(max(SOLMAT(j)%WCWP*0.8, SOLMAT(j)%WCR * 1.3), SOLMAT(j)%WCR + 0.5* SOLMAT(j)%WCSR)
@@ -3444,10 +3418,10 @@ subroutine readsoilcol(IFIN, k)
 
 
 
-  call searchgw(k,NNOD,NUNS,DZ,dzgw,HEAD,scol%DEPGW)
+  !call searchgw(k,NNOD,NUNS,DZ,dzgw,HEAD,scol%DEPGW)
 
 
-  !call bottom_pressure(k,NNOD,NUNS,DZ,dzgw,scol%DEPGW)
+  call bottom_pressure(k,NNOD,NUNS,DZ,dzgw,scol%DEPGW)
 
   select case(IINIT)
     case(1)
@@ -3700,14 +3674,18 @@ subroutine SOIL_ALL
   open(newunit=IFDEBUG,  file="solflw.info")
 
   open(newunit=IFBAL,    file="output.sol.bal")
-  write(IFBAL,"(A5,17A12)") "ihru","Time","GWDep","Hbot","Qnet","EpMax","Stor0","Stor1","Runoff", &
-    "Hpond","Infil","Esoil","SeepBot","LatIn","LatOut","Root","BalErr1","BalErr2"
+  write(IFBAL,"(A5,18A12)") "ihru","Time","GWDep","Hbot","Qnet","EpMax","Stor0","Stor1","Runoff", &
+    "Hpond","Infil","Esoil","SeepBot","IrriTot","LatIn","LatOut","Root","BalErr1","BalErr2"
 
   open(newunit=IFMAT,file="output.sol.mat")
   write(IFMAT,"(2A10,5A15)") "MAT","WC","S","H","K","PHI"
 
   open(newunit=IFDIS,file="output.sol.dis")
   write(IFDIS,"(3A5,5A15)") "hru","lay","mat","dz","dep","pressure","moisture","cond"
+
+
+  open(newunit=IFWEL,file="output.sol.wel")
+  write(IFWEL,"(2A5,1A10,A15)") "hru","iwel","day","q_m3/d"
 
   iMAT=0
   !	WRITE(IFMAT,111)
@@ -3735,3 +3713,147 @@ subroutine SOIL_ALL
   mstep=nstep
 end subroutine SOIL_ALL
 
+subroutine SetSS(k,n,S,DZ,RAIN,SLout,SLin,SRT,IRRI)
+  !set up the sorce and sink
+  !N    ~ node number of unsaturated zone and the virtual node
+  !H    ~ pressure head of each node
+  !WC0  ~ initial water content of each node
+  !WC0  ~ updated water content of each node
+  !SLout~ lateral outflow, mm/hr
+  !SLin ~ lateral inflow, mm/hr
+  !SRT  ~ root uptake, mm/hr
+  !IRRI  ~ root uptake, mm/hr
+
+  use parm, only: ubw, hru_slp, slsoil,dtot
+  use ROSSMOD
+  implicit none
+  integer, intent(in) :: k, n
+  real, intent(inout) :: IRRI
+  real, intent(in) :: S(n), RAIN
+  real, dimension(n), intent(in)	:: DZ
+  real, dimension(n), intent(out)	:: SLout,SLin,SRT
+
+  !!local variables
+  integer :: iLAY, i, iSTEP, j, iTMP0, iTMP1, nNOD, nNODm1, ii
+  real ::  r0,r1,dep,hlay
+  real ::  WC, AWC, WCFC, WCSAT, WCWP,SSURF, LSOIL, EPMAX, DEPRT, WUP, WDN, CON, ROOTMAX
+  real ::  eplack, hruarea
+  real, allocatable ::  swlack(:)
+  type(SOILMAT), pointer :: mat
+
+  if (SOLCOL(k)%nwel>0) then
+    allocate(swlack(SOLCOL(k)%nwel))
+    swlack = 0.
+  endif
+
+
+
+  LSOIL=slsoil(k)        !soil slope length, used in subsurface lateral flow calculation, m
+  SSURF=hru_slp(k)       !hru surface slope
+  EPMAX=SOLCOL(k)%EPMAX  !maximum transpiration rate, mm/hr
+  DEPRT=SOLCOL(k)%DEPROT	!depth of root
+  ROOTMAX=SOLCOL(k)%DEPRZONE
+  !compute source and sink (the S term)
+  SLin=zero
+  SLout=zero
+  SRT=zero
+  if (SOLCOL(k)%QLATIN>0.0) then
+    r0=SOLCOL(k)%QLATIN/min(sum(DZ),ROOTMAX)  !lateral inflow
+    SLin=DZ*r0
+  endif
+
+  WDN=zero
+  dep=zero
+  do i=1, n !lateral outflow and root uptake
+    j=SOLCOL(k)%jt(i)
+    mat=>SOLMAT(j)
+    !if (iLAY>sol_nly(k)) exit !not calculate deep root?
+    WCWP = mat%WCWP
+    AWC=  mat%WCAWC
+    WCFC= mat%WCFC
+    WCSAT=mat%WCS
+
+    WC=MAT_S2WC(j,S(i))
+    hlay=MAT_S2H(j,S(i))
+    !DTMP=WCNEW(i)
+
+
+    !calculate the water content deficit for crop
+    do ii=1, SOLCOL(k)%nwel
+      r0 = SOLCOL(k)%wel(ii)%theta * AWC + WCWP - WC
+      if (r0>0.) swlack(ii) = swlack(ii) + r0 * DZ(i)
+    enddo
+
+
+    !!  unsaturated lateral flow, perched water table
+    !!  COMPUTE LATERAL FLOW USING HILLSLOPE STORAGE METHOD
+    if (WC>WCFC) then   !not including saturated zone
+      CON=MAT_S2K(j,S(i))
+      SLout(i)=0.001*2.0*DZ(i)*CON*(WC-WCFC)*SSURF/((WCSAT-WCFC)*LSOIL)  !unit is mm/hr
+    endif
+
+    if (SLout(i)<CLOSEZERO) SLout(i)=zero
+
+    !root water uptake.
+    WUP=WDN
+    dep=dep+DZ(i)
+    if (dep<DEPRT .and. WC>WCWP) then
+      AWC=0.25*AWC
+      WDN=EPMAX/(1-exp(-ubw))*(1-exp(-ubw*dep/DEPRT))  !ubw: water uptake distribution parameter
+      if (WC<AWC) then
+        SRT(i)=(WDN-WUP)*exp(5.0*(WC/AWC-ONE))
+      else
+        SRT(i)=(WDN-WUP)
+      endif
+    else
+      SRT(i)=zero
+    endif
+    if (SRT(i)<CLOSEZERO) SRT(i)=zero
+
+    if (dep>ROOTMAX) exit !not exceed the root zone
+  enddo
+
+  if (DEPRT>dep) then !the root extends to saturated zone
+    WDN=EPMAX
+    SRT(n)=WDN-WUP
+
+  endif
+
+
+  IRRI = 0.
+  if (SOLCOL(k)%nwel>0) then
+    SOLCOL(k)%wel%q = 0.
+  else
+    return
+  endif
+  !no crop
+  if (EPMAX <= 0.) return
+
+
+
+  !mm/hr ->
+  iSTEP = int(dtot)
+  do i = 1, SOLCOL(k)%nwel
+    !check time if the well is activated
+    if (SOLCOL(k)%wel(i)%istart>iSTEP .or. SOLCOL(k)%wel(i)%iend<iSTEP) cycle
+    !check the method used for crop irrigation requrement calculation
+    if (SOLCOL(k)%wel(i)%way == 1) then
+      !used potential transpiration
+      eplack = max(0.,EPMAX - sum(SRT))
+    elseif (SOLCOL(k)%wel(i)%way == 2) then
+      !used soil water deficit
+      eplack = swlack(i)/SOLCOL(k)%wel(i)%dt !mm/hr
+    else
+      eplack = max(0.,EPMAX - sum(SRT), swlack(i)/SOLCOL(k)%wel(i)%dt)
+    endif
+
+    if (eplack<=0.) cycle
+
+    r0  = min((eplack/SOLCOL(k)%wel(i)%eff - RAIN) * SOLCOL(k)%wel(i)%area, SOLCOL(k)%wel(i)%cap)    !mm/hr
+    if (r0<=0) cycle
+    SOLCOL(k)%wel(i)%q = r0
+    IRRI = IRRI + r0
+  enddo
+
+  !irri is mm/hr
+end subroutine SetSS

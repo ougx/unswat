@@ -63,7 +63,7 @@ subroutine TRS(k)
 
 
   !real, dimension(mstep) :: evap,infil,drn,runoff
-  real  :: evap,infil,drn,runoff(mstep)
+  real  :: evap,infil,drn,runoff(mstep),irritot
   !type(SOILMAT), pointer :: mat
   type(SOILCOLUMN), pointer	::	scol
   logical :: lowgw    !if the groundwater level is lower than the bottom of the soil profile
@@ -134,7 +134,6 @@ subroutine TRS(k)
 
   call searchgw(k,ntot,nun,DZ,dzgw,hh,scol%DEPGW)
 
-  call SOLCOL_Update_Node_h(k,nun+1,ntot,hh((nun+1):ntot))
 
   !call bottom_pressure(k,ntot,nun,DZ,dzgw,scol%DEPGW)
 
@@ -177,7 +176,10 @@ subroutine TRS(k)
   evap=ZERO
   infil=ZERO
   drn=ZERO
+  irritot=ZERO
   rain=scol%HPOND
+
+  if (scol%nwel > 0) scol%wel%qtot = 0.
 
   !DZ(nun)=DZ(nun)-dzgw
 
@@ -210,7 +212,7 @@ subroutine TRS(k)
     qNET=qNET+(qprec-qevap)*(tstep(iSTEP)-tstep(iSTEP-1))
     rain=rain+qprec*(tstep(iSTEP)-tstep(iSTEP-1))
     call solve(k,tstep(iSTEP-1),tstep(iSTEP),qprec,qevap,nun,DZ,jt,scol%hqmin,HMIN,hbot,scol%HPOND,scol%Kdn,scol%Kup,scol%var, &
-                FZN,scol%POV,FiveThd,evap,runoff(iStep),infil,drn,qsum,sicum,socum,srcum, &
+                FZN,scol%POV,FiveThd,evap,runoff(iStep),infil,drn,irritot,qsum,sicum,socum,srcum, &
                 scol%dtmin,scol%dtmax,scol%dSmax,scol%dSmaxr,scol%dSfac,scol%dpmaxr,lowgw)
   enddo
 
@@ -221,7 +223,6 @@ subroutine TRS(k)
   scol%ESMAX=ZERO
   scol%IRRI=ZERO
   scol%QLATIN=ZERO
-
 
 !        str1=sum((SOLMAT(jt)%WCS-SOLMAT(jt)%WCSR*(1.0-S))*dx)
 !        rlat=sum(socum-sicum+srcum)
@@ -239,7 +240,7 @@ subroutine TRS(k)
   !DZ(nun)=DZ(nun)+dzgw
   !call setsaturation(DZ(nun),dzgw,scol%var(nun),jt(nun),scol%WC(nun))
 
-  call FinalizeDayUN(k,nun,ntot,runoff,QUB,qsum,evap,sicum,socum,srcum)
+  call FinalizeDayUN(k,nun,ntot,runoff,QUB,qsum,evap,sicum,socum,srcum,irritot)
 
   scol%QSUM=qsum(1:ntot)
 
@@ -250,13 +251,14 @@ subroutine TRS(k)
     !call print_var(IFPROFILE,nun,scol%var,iyr*1000.+iida,scol%WC)
   !stop
 #endif
+  rain = rain + irritot
   if (scol%IPRINT <0 .and. scol%IPRINT >= -2) then
     s1=sum(scol%WC(1:nun)*scol%DZ(1:nun))
     sic=sum(sicum)
     soc=sum(socum)
     src=sum(srcum)
-    write (IFBAL,'(I5,17((F12.4)))') k,tstep(mstep)/24.,scol%DEPGW,dzgw,qNET,scol%EPMAX*24.,s0,s1, &
-                              sum(runoff),scol%HPOND,infil,evap,drn,sic,soc,src, &
+    write (IFBAL,'(I5,18((F12.4)))') k,tstep(mstep)/24.,scol%DEPGW,dzgw,qNET,scol%EPMAX*24.,s0,s1, &
+                              sum(runoff),scol%HPOND,infil,evap,drn,irritot,sic,soc,src, &
                               s0+infil-drn+sic-soc-src-s1, &
                               rain-(s1-s0+scol%HPOND+drn+evap+soc+src+sum(runoff)-sic)
   endif
@@ -269,6 +271,15 @@ subroutine TRS(k)
     enddo
   endif
   !write (*,*) 'excuting at year:', iyr, '   day:', iida
+
+
+    do j = 1, scol%nwel
+      s0 = hru_km(k)*scol%wel(j)%qtot*1.e3    !m3
+      iStep = int(dtot)
+
+      write(IFWEL,"(2I5,I10,1PE15.8)") k,j,iStep,s0
+    enddo
+
 end subroutine
 
 
