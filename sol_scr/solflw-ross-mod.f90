@@ -329,6 +329,12 @@ contains
     else
       MAT_S2MP=SOLMAT(IMAT)%PHIE*S**(SOLMAT(IMAT)%ETA-1/SOLMAT(IMAT)%LAM)
     endif
+#ifdef debugMODE
+    if (MAT_S2MP <= tiny(SOLMAT(IMAT)%PHIE)) then
+      !
+      MAT_S2MP = tiny(SOLMAT(IMAT)%PHIE)
+    endif
+#endif
   end function
 
   elemental real function MAT_S2K(IMAT,S)
@@ -366,6 +372,11 @@ contains
       !MAT_H2MP=SOLMAT(IMAT)%HBUB*S**(SOLMAT(IMAT)%ETA-1.0/SOLMAT(IMAT)%LAM)
       MAT_H2MP=SOLMAT(IMAT)%PHIE*(H/SOLMAT(IMAT)%HBUB)**(ONE-SOLMAT(IMAT)%ETA*SOLMAT(IMAT)%LAM)
     endif
+#ifdef debugMODE
+    if (MAT_H2MP <= tiny(SOLMAT(IMAT)%PHIE)) then
+      MAT_H2MP = tiny(SOLMAT(IMAT)%PHIE)
+    endif
+#endif
   end function
 
   elemental real function MAT_MP2H(IMAT,MP)
@@ -522,14 +533,14 @@ contains
     TYPE(SOILMAT),POINTER::p
     p=>SOLMAT(j); done=.false.
     hz=h-gf*dz ! gf is gravity fac in direction of dz
-    !    if (h<p%HBUB) then
-    !      a=p%lam*p%eta; x=-gf*dz/h
-    !      if (a<=3.0.or.x*(a-3.0)<=4.0) then ! use predetermined approx.
-    !        w=(60.0+x*(70.0+10.0*a+x*(16.0+a*(5.0+a))))/ &
-      !          (120.0+x*(120.0+x*(22.0+2.0*a**2)))
-    !        done=.true.
-    !      end if
-    !    end if
+    if (h<p%HBUB) then   !this method produce wrong direction of the flow for very dry coniditon
+      a=p%lam*p%eta; x=-gf*dz/h
+      if (a<=3.0.or.x*(a-3.0)<=4.0) then ! use predetermined approx.
+        w=(60.0+x*(70.0+10.0*a+x*(16.0+a*(5.0+a))))/ &
+            (120.0+x*(120.0+x*(22.0+2.0*a**2)))
+        done=.true.
+      end if
+    end if
     if (.not.done) then
       !call hyofh(hz,j,Kz,Khz,phiz) ! accurate but slower
       phiz = MAT_H2MP(j,hz)
@@ -1212,6 +1223,7 @@ contains
     REAL::qov   !OGX: overland flow/L_s, q_surf in the paper
     real::S0,Sn !OGX: top and bottom effective saturation
     real::tfin,irri
+    character*200 :: ErrInfo
     !TYPE(vars)::v0et  !OGX
     logical :: limitET, SatEx
     REAL,DIMENSION(n)::sli,slo,srt,qex
@@ -1296,13 +1308,13 @@ contains
     !str0=sum((SOLMAT(jt)%WCS-SOLMAT(jt)%WCSR*(1.0-S))*dx)
     nsat = sum(var%isat)
     !qprec0 = qprec
-    do while (t<tfin)
+    ROSSDAY: do while (t<tfin)
       call SetSS(k,n,S,dx,qprec,slo,sli,srt,irri)
       qprec1 = qprec + irri
       qpme=qprec1-qevap ! input rate
 
       !----- take next time step
-      do iflux=1,2 ! sometimes need twice to adjust phi at satn
+      IFLUXLOOP: do iflux=1,2 ! sometimes need twice to adjust phi at satn
 
         pondmove=.false.
         pond=.false.
@@ -1541,7 +1553,7 @@ contains
         ! if initial step, improve phi where S>=1
         if (msteps==msteps0.and.nsat>0.and.iflux==1) then
           again=.true.
-          dt=1.0e-20*ttfin
+          dt=1.0e-20*tfin
 #ifdef debugMODE
           dtline(4) = 1167
           dt0(4) = dt
@@ -1550,7 +1562,7 @@ contains
         if (nsat==n.and.nsatlast<n.and.iflux==1) then
           ! profile has just become saturated so adjust phi values
           again=.true.
-          dt=1.0e-20*ttfin
+          dt=1.0e-20*tfin
 #ifdef debugMODE
           dtline(5) = 1176
           dt0(5) = dt
@@ -1581,16 +1593,11 @@ contains
         !end if
         iok=0 ! flag for time step test
         itmp=0 ! counter to abort if not getting solution
-        do while (iok==0) ! keep reducing time step until all ok
+        REDUCETIME: do while (iok==0) ! keep reducing time step until all ok
           itmp=itmp+1
           accel=one-0.05*min(10,max(0,itmp-4)) ! acceleration
           if (itmp>40) then
-#ifdef debugMODE
-            write (IFDEBUG,*) "solve: too many iterations of equation solution"
-            write (IFDEBUG,*) "accel",accel
-            write (IFDEBUG,*) "itmp",itmp
-#endif
-            call USTOP(' Solve: too many iterations of equation solution.')
+            exit IFLUXLOOP
           end if
           if (ns<1) then
             bb(0)=-(qya(0)+rsigdt+qhov)     !OGX: include overland flow qhov: derivative of q_ov WRT h_0
@@ -1710,7 +1717,7 @@ contains
 #endif
             end if
           end if
-        end do
+        end do REDUCETIME
         !----- end get and solve eqns
         !----- update unknowns
         ih0=0
@@ -1787,40 +1794,52 @@ contains
         do i=1,n
 #ifdef debugMODE
           !check dy and q, and if mass balance is correct
-          !if (S(i)<0.001) then
-          !  write(IFDEBUG, "(//,3A5,15A12)") "hru", "lay", "isat","t","dt", &
-          !    "S", "dx(mm)","K(mm/hr)","phi", "h(mm)", "dQ/dS1","dQ/dS2", &
-          !    "q0_i(mm)", "q_i(mm)","qroot(mm)","qlat(mm)","dy","dy(mm)"
-          !  do j=i-1,i+1
-          !    r2 = (q(j)+  sig*(qya(j)*  dy(j)+  qyb(j)*  dy(j+1)))*dt
-          !    write(IFDEBUG, "(3I5,15(1PE12.4))") &
-          !      k,j,var(j)%isat,t/24.,dt, &
-          !      S(j), dx(j),var(j)%K,var(j)%phi,var(j)%h,qya(j),qyb(j), &
-          !      q(j)*dt, &
-          !      r2, &
-          !      srt(j)*dt,slo(j)*dt, &
-          !      dy(j), dy(j)*SOLMAT(jt(j))%WCSR*dx(j)
-          !  enddo
-          !  r1 = (q(i-1)+sig*(qya(i-1)*dy(i-1)+qyb(i-1)*dy(i)))*dt
-          !  r2 = (q(i)+  sig*(qya(i)*  dy(i)+  qyb(i)*  dy(i+1)))*dt
-          !  r3 = r1-r2-srt(j)*dt-slo(j)*dt
-          !  r1 = (MAT_S2WC(jt(i),S(i)+dy(i))-MAT_S2WC(jt(i),S(i)))  *dx(i)
-          !  r2 = r3
-          !  r3 = r1 - r2
-          !  write(IFDEBUG, "(A,3(1PE12.4))") "DWC_mm,Qnet_mm,Err_mm", r1,r2,r3
-          !  write(IFDEBUG, "(A,4(1PE12.4))") "WC0,WC1,WCSR,WCR     ", &
-          !    MAT_S2WC(jt(i),S(i)+dy(i)),MAT_S2WC(jt(i),S(i)),SOLMAT(jt(j))%WCSR,SOLMAT(jt(j))%WCR
-          !  r1=weight(jt(i),var(i)%h,var(i)%K,var(i)%phi,dz(i-1))
-          !  r2=(var(i-1)%phi-var(i)%phi)/dz(i-1)
-          !  r3= var(i-1)%K*r1 + (1-r1)*var(i)%K
-          !  write(IFDEBUG, "(A,5(1PE12.4))") "w, (phi1-phi0)/dz, K, q0, K(h0-h1)/dz + K", r1, r2, r3, r2+r3, &
-          !    r3*(var(i-1)%h-var(i)%h)/dz(i-1) + r3
-          !  r1=weight(jt(i+1),var(i+1)%h,var(i+1)%K,var(i+1)%phi,dz(i))
-          !  r2=(var(i)%phi-var(i+1)%phi)/dz(i)
-          !  r3= var(i)%K*r1 + (1-r1)*var(i+1)%K
-          !  write(IFDEBUG, "(A,5(1PE12.4))") "w, (phi1-phi0)/dz, K, q1, K(h0-h1)/dz + K", r1, r2, r3, r2+r3, &
-          !    r3*(var(i)%h-var(i+1)%h)/dz(i) + r3
-          !endif
+          if (S(i)<1e-4) then
+            write(IFDEBUG, "(//,4A5,17A12)") &
+              "hru",	"lay",	"isat",	"imat",	"t",	"dt",	"S",	"dx(mm)",	&
+              "K(mm/hr)",	"phi",	"h(mm)",	"qroot(mm)",	"qlat(mm)",	"dy",	"dy(mm)",	&
+              "qya",	"qyb",	"q0_i(mm)",	"q_i(mm)","qya*dy1(mm)",	"qyb*dy2(mm)"
+            j = i-1
+            write(IFDEBUG, "(4I5,11(ES12.4))") &
+                k,j,var(j)%isat, jt(j),t/24.,dt, &
+                S(j), dx(j),var(j)%K,var(j)%phi,var(j)%h, &
+                srt(j)*dt,slo(j)*dt, &
+                dy(j), dy(j)*SOLMAT(jt(j))%WCSR*dx(j)
+
+
+            do j=i,i+1
+              r1 = sig * qya(j-1)*  dy(j-1) * dt
+              r2=  sig * qyb(j-1)*  dy(j) * dt
+              r3 = q(j-1) * dt
+
+              write(IFDEBUG, "(152x,6(ES12.4))") qya(j-1),qyb(j-1),r3, r1+r2+r3, r1, r2
+
+              write(IFDEBUG, "(4I5,11(ES12.4))") &
+                k,j,var(j)%isat, jt(j),t/24.,dt, &
+                S(j), dx(j),var(j)%K,var(j)%phi,var(j)%h, &
+                srt(j)*dt,slo(j)*dt, &
+                dy(j), dy(j)*SOLMAT(jt(j))%WCSR*dx(j)
+            enddo
+            r1 = (q(i-1)+sig*(qya(i-1)*dy(i-1)+qyb(i-1)*dy(i)))*dt
+            r2 = (q(i)+  sig*(qya(i)*  dy(i)+  qyb(i)*  dy(i+1)))*dt
+            r3 = r1-r2-srt(j)*dt-slo(j)*dt
+            r1 = (MAT_S2WC(jt(i),S(i)+dy(i))-MAT_S2WC(jt(i),S(i)))  *dx(i)
+            r2 = r3
+            r3 = r1 - r2
+            write(IFDEBUG, "(A,3(1PE12.4))") "DWC_mm,Qnet_mm,Err_mm", r1,r2,r3
+            write(IFDEBUG, "(A,4(1PE12.4))") "WC0,WC1,WCSR,WCR     ", &
+              MAT_S2WC(jt(i),S(i)+dy(i)),MAT_S2WC(jt(i),S(i)),SOLMAT(jt(j))%WCSR,SOLMAT(jt(j))%WCR
+            r1=weight(jt(i),var(i)%h,var(i)%K,var(i)%phi,dz(i-1))
+            r2=(var(i-1)%phi-var(i)%phi)/dz(i-1)
+            r3= var(i-1)%K*r1 + (1-r1)*var(i)%K
+            write(IFDEBUG, "(A,5(1PE12.4))") "w, (phi1-phi0)/dz, K, q0, K(h0-h1)/dz + K", r1, r2, r3, r2+r3, &
+              r3*(var(i-1)%h-var(i)%h)/dz(i-1) + r3
+            r1=weight(jt(i+1),var(i+1)%h,var(i+1)%K,var(i+1)%phi,dz(i))
+            r2=(var(i)%phi-var(i+1)%phi)/dz(i)
+            r3= var(i)%K*r1 + (1-r1)*var(i+1)%K
+            write(IFDEBUG, "(A,5(1PE12.4))") "w, (phi1-phi0)/dz, K, q1, K(h0-h1)/dz + K", r1, r2, r3, r2+r3, &
+              r3*(var(i)%h-var(i+1)%h)/dz(i) + r3
+          endif
 #endif
           j=jt(i); p=>SOLMAT(j); v=>var(i)
           if (v%isat==0) then
@@ -1844,19 +1863,28 @@ contains
         end do
         !----- end update unknowns
         if (.not.again) exit
-      end do
-      if (dt<dtmin .and. .not. pondmove .and. itmp>10) then
+      end do IFLUXLOOP
+      if (dt<dtmin .or. itmp>40) then
+        write(IFDEBUG,*) "At HRU = ", k
+        if(itmp>40) then
+          write (IFDEBUG,*) "solve: too many iterations of equation solution"
+          write (IFDEBUG,*) "accel",accel
+          write (IFDEBUG,*) "itmp",itmp
+          ErrInfo = " solve: too many iterations of equation solution"
+        else
+          ErrInfo = ' solve: dt is smaller than user defined'
+        endif
 #ifdef debugMODE
         write(IFDEBUG,*)
-        write(IFDEBUG,*) "At HRU = ", k
         write(IFDEBUG,*) "solve: time step = ",dt," is smaller than user defined"
         write(IFDEBUG,*) "t, dt, ts, tfin", tts+t, dt, tts, ttfin
         write(IFDEBUG,*)  "dt0 = ", dSmax/dmax
         write(IFDEBUG,"(A,8I10)")   "lines           ", dtline(1:8)
         write(IFDEBUG,"(A,8G10.2)") "fac             ", facc(1:8)
         write(IFDEBUG,"(A,9G10.2)") "dt    ", dt0(0:8)
-        write(IFDEBUG,*) "The 24h precipitation rate is", qprec1
-        call print_var(IFPROFILE,k,n,var,(t+tts)/24.,hbot,S*SOLMAT(jt)%WCSR,dx,qsum)
+        write(IFDEBUG,*) "The 24h precipitation rate is ", qprec1
+        write(IFDEBUG,*) "The 24h ET rate is            ", qevap
+        call print_var(IFPROFILE,k,n,var,(t+tts)/24.,hbot,S*SOLMAT(jt)%WCSR,dx,qsum,socum,srcum)
 
         write (IFDEBUG,"(//,3A10, 8A15)")  &
           "HRU","time","isat","dx","pressure","moisture","saturation","hydraulicK", "phi", "SRoot","SLat"
@@ -1872,7 +1900,7 @@ contains
             slo(i)
         enddo
 #endif
-        call USTOP(' dt is smaller than user defined')
+        call USTOP(ErrInfo)
       end if
       !----- end take ne`````````````````````````````````````````````````````````````````````````````````````xt time step
       ! remove negative h0 (optional)
@@ -1895,7 +1923,7 @@ contains
       !        write (IFBAL,*) initpond
 
 #endif
-    end do
+    end do ROSSDAY
 
     !update variables
     var%S=S
@@ -2061,6 +2089,9 @@ contains
 
           ! adjust derivs
           y1 = interf(hi)
+          if (qya2-qyb(i) == 0.) then
+            y1 = interf(hi*0.99)
+          endif
           y=1./(qya2-qyb(i))
           qya(i)=qya(i)*qya2*y; qyb(i)=-qyb2*qyb(i)*y
 
@@ -2931,20 +2962,35 @@ contains
 
   end subroutine
 
-  subroutine print_var(ifout, k, n, var, t, gw, wc, dx, q)
+  subroutine print_var(ifout, k, n, var, t, gw, wc, dx, q, slat,srt)
     use parm, only: iida,iyr
     implicit none
     integer, intent(in)		::	ifout, k, n
     real, intent(in)		::	t, gw
     type(vars), intent(inout)	::	var(n)
-    real, optional, intent(in)		::	wc(n), dx(n), q(n)
+    real, optional, intent(in)		::	wc(n), dx(n), q(n), slat(n),srt(n)
 
     integer			::	i
     real :: dep
 
     dep = 0.
+
     write (ifout,"(A,I5,A,I4,A,I3,A,F12.3)") "#Soil Profile: ", k," at Year: ",iyr,' and day ' ,iida,' with GWDep: ', gw
-    if (present(q)) then
+    if (present(srt)) then
+      !print header
+      if (t > -1) then
+        write(ifout,"(3A10,8A15)")"#      HRU","time","isat","depth","pressure","moisture","hydraulicK","phi","cumQ","SLat","SRoot"
+      else
+        write(ifout,"(3A10,8A15)")"HRU",       "time","isat","depth","pressure","moisture","hydraulicK","phi","cumQ","SLat","SRoot"
+      endif
+      do i=1, n
+        dep = dep + dx(i)
+        write (ifout,"(I10,F10.2,I10,8(ES15.7))")  &
+            k,t,var(i)%isat, dep - dx(i)*.5, var(i)%h,wc(i),var(i)%K,var(i)%phi,q(i),slat(i),srt(i)
+      enddo
+
+
+    elseif (present(q)) then
       !print header
       if (t > -1) then
         write (ifout,"(3A10, 6A15)")  "#      HRU","time","isat","depth","pressure","moisture","hydraulicK", "phi", "cumQ"
@@ -2953,7 +2999,7 @@ contains
       endif
       do i=1, n
         dep = dep + dx(i)
-        write (ifout,"(I10,F10.0,I10,6E15.7)")  k,t,var(i)%isat, dep - dx(i)*.5, var(i)%h,wc(i),var(i)%K,var(i)%phi,q(i)
+        write (ifout,"(I10,F10.2,I10,6E15.7)")  k,t,var(i)%isat, dep - dx(i)*.5, var(i)%h,wc(i),var(i)%K,var(i)%phi,q(i)
       enddo
 
 
@@ -2966,7 +3012,7 @@ contains
       endif
       do i=1, n
         dep = dep + dx(i)
-        write (ifout,"(I10,F10.0,I10,5E15.7)")  k,t,var(i)%isat, dep - dx(i)*.5, var(i)%h,wc(i),var(i)%K,var(i)%phi
+        write (ifout,"(I10,F10.2,I10,5E15.7)")  k,t,var(i)%isat, dep - dx(i)*.5, var(i)%h,wc(i),var(i)%K,var(i)%phi
       enddo
 
     elseif (present(wc)) then
@@ -2974,14 +3020,14 @@ contains
       write (ifout,"(3A10, 4A15)")  "#      HRU","time","isat","pressure","moisture","hydraulicK", "phi"
       do i=1, n
         dep = dep + dx(i)
-        write (ifout,"(I10,F10.0,I10,4E15.7)")  k,t,var(i)%isat,var(i)%h,wc(i),var(i)%K,var(i)%phi
+        write (ifout,"(I10,F10.2,I10,4E15.7)")  k,t,var(i)%isat,var(i)%h,wc(i),var(i)%K,var(i)%phi
       enddo
 
     else
 
       write (ifout,"(3A10, 3A15)")  "#      HRU","time","isat","pressure","hydraulicK", "phi"
       do i=1, n
-        write (ifout,"(I10,F10.0,I10,3E15.7)")  k,t,var(i)%isat,var(i)%h,var(i)%K,var(i)%phi
+        write (ifout,"(I10,F10.2,I10,3E15.7)")  k,t,var(i)%isat,var(i)%h,var(i)%K,var(i)%phi
       enddo
     endif
 
@@ -3593,7 +3639,7 @@ subroutine readsoilmat
   integer			::	sfile
   integer			::	i, iis,iie,icol
   integer			::	k
-  real				::	r
+  real				::	r, phi0, wc0, s0
   integer   	::	iwp				!wilting point, 0 input by user, 1 calculate at -15 bar
   integer   	::	iawc			!available water content, 0 input by user, 1 calculate at -15 bar
   character(len=400) :: sline
@@ -3626,25 +3672,37 @@ subroutine readsoilmat
     call URWORD(sline,icol,iis,iie,3,k,p%ETA,slogfile,sfile)
     call URWORD(sline,icol,iis,iie,3,k,p%HBUB,slogfile,sfile)
 
-    p%WCSR=p%WCS-p%WCR
     p%PHIE=p%KSAT*p%HBUB/(one-p%lam*p%eta) ! MFP at HBUB
+
+    !phi0 = 1e-20
+    !s0 = (phi0 / p%PHIE ) ** (p%lam / (p%lam*p%eta - 1))
+
+    !if (p%WCR)
+
+    p%WCSR=p%WCS-p%WCR
     p%KSE=p%ETA*p%KSAT ! dK/dS at HBUB
     p%PHISE=(p%ETA-ONE/p%LAM)*p%PHIE ! dphi/dS at HBUB
+
 
     if (iwp==1) then
       call URWORD(sline,icol,iis,iie,2,k,p%WCWP,slogfile,sfile)
     else
       p%WCWP=MAT_H2WC(i,H1500kPa)
     endif
+    p%WCWP = max(p%WCSR * 0.05 + p%WCR, p%WCWP)  !to avoid too small wilting point
     if (iawc==1) then
       call URWORD(sline,icol,iis,iie,2,k,p%WCAWC,slogfile,sfile)
       p%WCFC=p%WCAWC+p%WCWP
+
       if (p%WCFC<0.0) then
         call USTOP('Wrong AWC in input file of soil material')
       endif
     else
       p%WCFC=MAT_H2WC(i,H33kPa)
+      p%WCFC = max(p%WCSR * 0.3 + p%WCR, p%WCFC)  !to avoid too small field capacity
+
       p%WCAWC=p%WCFC-p%WCWP
+
     endif
 
     write(slogfile, "(I5,10(F15.8))") i,p%KSAT,p%LAM,p%ETA,p%HBUB,p%PHIE,p%WCR,p%WCWP,p%WCAWC,p%WCFC,p%WCS
@@ -3798,7 +3856,9 @@ subroutine SetSS(k,n,S,DZ,RAIN,SLout,SLin,SRT,IRRI)
     WUP=WDN
     dep=dep+DZ(i)
     if (dep<DEPRT .and. WC>WCWP) then
-      AWC=0.25*AWC
+
+      AWC=max(0.25*AWC, WCWP+0.1*AWC)
+
       WDN=EPMAX/(1-exp(-ubw))*(1-exp(-ubw*dep/DEPRT))  !ubw: water uptake distribution parameter
       if (WC<AWC) then
         SRT(i)=(WDN-WUP)*exp(5.0*(WC/AWC-ONE))
@@ -3813,11 +3873,11 @@ subroutine SetSS(k,n,S,DZ,RAIN,SLout,SLin,SRT,IRRI)
     if (dep>ROOTMAX) exit !not exceed the root zone
   enddo
 
-  if (DEPRT>dep) then !the root extends to saturated zone
-    WDN=EPMAX
-    SRT(n)=WDN-WUP
+  !if (DEPRT>dep) then !the root extends to saturated zone
+    !WDN=EPMAX
+    !SRT(i)=WDN-WUP
 
-  endif
+  !endif
 
 
   IRRI = 0.

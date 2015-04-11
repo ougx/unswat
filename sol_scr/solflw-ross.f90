@@ -75,7 +75,7 @@ subroutine TRS(k)
 
 
   !
-  !if (k /= 184) return
+  if (k /= 10) return
   rchrg(k) = ZERO
 
   scol=>SOLCOL(k)
@@ -132,10 +132,10 @@ subroutine TRS(k)
   DZ(1:ntot)=scol%DZ(1:ntot)
 
 
-  call searchgw(k,ntot,nun,DZ,dzgw,hh,scol%DEPGW)
+  !call searchgw(k,ntot,nun,DZ,dzgw,hh,scol%DEPGW)
 
 
-  !call bottom_pressure(k,ntot,nun,DZ,dzgw,scol%DEPGW)
+  call bottom_pressure(k,ntot,nun,DZ,dzgw,scol%DEPGW)
 
 
   write (IFDEBUG,*) ""
@@ -148,12 +148,12 @@ subroutine TRS(k)
 
 
 
-  if (dzgw < 0.) then
-    lowgw = .true.
-    nun=ntot
-  else
-    lowgw = .false.
-  endif
+  !if (dzgw < 0.) then
+  !  lowgw = .true.
+  !  nun=ntot
+  !else
+  !  lowgw = .false.
+  !endif
 
 
 #ifdef debugMODE
@@ -263,7 +263,7 @@ subroutine TRS(k)
                               rain-(s1-s0+scol%HPOND+drn+evap+soc+src+sum(runoff)-sic)
   endif
   if (scol%IPRINT == -1) then
-    call print_var(IFPROFILE,k,nun,scol%var,tstep(mstep)/24.,scol%DEPGW,scol%WC,DZ,qsum)
+    call print_var(IFPROFILE,k,nun,scol%var,tstep(mstep)/24.,scol%DEPGW,scol%WC,DZ,qsum,socum,srcum)
   elseif (scol%IPRINT > 0) then
     do j=1, scol%IPRINT
       iLAY = scol%OBLay(j)
