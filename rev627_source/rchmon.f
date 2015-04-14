@@ -125,12 +125,12 @@
         srch_av(2) = rchmono(2,j) / Real(mdays)
         !! take log10 of monthly flow for graphing
         if (ilog > 0) then
-          if (srch_av(1) > 1.) then
+          if (srch_av(1) > 0.) then
             srch_av(1) = Log10(srch_av(1))
           else
             srch_av(1) = 0.
           end if
-          if (srch_av(2) > 1.) then
+          if (srch_av(2) > 0.) then
             srch_av(2) = Log10(srch_av(2))
           else
             srch_av(2) = 0.

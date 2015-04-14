@@ -75,7 +75,7 @@ subroutine TRS(k)
 
 
   !
-  if (k /= 10) return
+  !if (k /= 10) return
   rchrg(k) = ZERO
 
   scol=>SOLCOL(k)

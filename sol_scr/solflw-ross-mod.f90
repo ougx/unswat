@@ -25,7 +25,7 @@ module ROSSMOD
   REAL,PARAMETER						 ::		zero=0.0e0,HALF=0.5e0,ONE=1.0e0,TWO=2.0e0
   REAL,PARAMETER						 ::		UnitU2S=36.0e0 !m/s to mm/hr, used for overland flow calculation
   REAL,PARAMETER						 ::		GRAVITY      = 9.80665
-  REAL,PARAMETER						 ::		hydrcmin      = tiny(0.0) !minimum hydraulic conductivity
+  REAL,PARAMETER						 ::		hydrcmin      = tiny(0.0)*100. !minimum hydraulic conductivity
   !real,     save        ::  TEMPFAC   !temperature factor on K, K'=K*TEMPFAC, TEMPFAC=0.001, if temperature of soil layer < 0 C, otherwise TEMPFAC = 1.0
 
   real,parameter  ::   H10kPa    =-1000    !mm, 10 kPa field capacity, 0.1 bar
@@ -137,6 +137,7 @@ module ROSSMOD
 
   type SOILCOLUMN
     integer(1)          ::  Lay1_split 		!whether the first layer is splite because 10 mm limit: 1: yse, 0: no split
+    integer             ::  MInterface=0  !method to calculate interface flow; 0-geo mean; 1-ross method
     integer             ::  IPRINT 		    !print the soil profile or not: 1: yse, 0: no
     integer             ::  ISUB		  		!index of subbasin
     integer             ::  IHRU      		!index of hru within subbasin
@@ -344,7 +345,9 @@ contains
       MAT_S2K=SOLMAT(IMAT)%KSAT
     else
       MAT_S2K=SOLMAT(IMAT)%KSAT*S**SOLMAT(IMAT)%ETA
-      if (MAT_S2K<hydrcmin) MAT_S2K = hydrcmin
+      if (MAT_S2K<hydrcmin) then 
+        MAT_S2K = hydrcmin
+      endif
     endif
   end function
 
@@ -570,16 +573,20 @@ contains
     TYPE(SOILMAT),POINTER::p
     TYPE(vars),POINTER::v
     do i=1,nl
+      j=jt(i); v=>var(i)
+      p=>SOLMAT(j)
       if (S(i)<one) then
-        j=jt(i); v=>var(i)
-        p=>SOLMAT(j)
         lnS=log(S(i))
         v1=exp(-lnS/p%LAM); v2=exp(p%ETA*lnS)
         v%h=p%HBUB*v1; v%K=p%KSAT*v2
-        if (v%K<hydrcmin) v%K = hydrcmin
+        if (v%K<hydrcmin) then 
+          v%K = hydrcmin
+        endif
         v%phi=p%phie*v1*v2
         v%KS=p%eta*v%K/S(i); v%phiS=(p%eta-one/p%lam)*v%phi/S(i)
         v%S=S(i)
+      else        
+        v%K=p%KSAT
       end if
     end do
   END SUBROUTINE hyofS
@@ -601,7 +608,9 @@ contains
     p=>SOLMAT(j); a=-p%lam*p%eta
     ! exp and log may be faster than **
     K=p%KSAT*exp(a*log(h/p%HBUB))
-    if (K<hydrcmin) K = hydrcmin
+    if (K<hydrcmin) then 
+      K = hydrcmin
+    endif
     Kh=a*K/h
     phi=K*h/(one+a)
   END SUBROUTINE hyofh
@@ -904,7 +913,7 @@ contains
       !write (*,*) 'solve_steady: The initial value will be set as the average of the last two iteration.'
       write (IFDEBUG,"(A)") '# solve_steady: Reach the maximum iteration number, steady state solution not archived'
       !write (IFDEBUG,"(A)") 'solve_steady: The initial value will be set as the average of the last two iteration.'
-      call initial_linear(nn,dx,jt,htop,hbot,H(1:nn))
+      !call initial_linear(nn,dx,jt,htop,hbot,H(1:nn))
       !H = 0.5*(H+HTMP)
     endif
     !output
@@ -1349,14 +1358,17 @@ contains
         sig=half; IF (nsat/=0) sig=one ! time weighting sigma
         rsig=one/sig
         ! update variables
-        if (iflux==1) call hyofS(S,n,jt,var) ! for layers where S<1
+        if (iflux==1) then 
+          call hyofS(S,n,jt,var) ! for layers where S<1
+          var%K=var%K*fzn
+        endif 
         ! phi is solution var at satn, so h calc from phi where S>=1
 
-        where (var%isat == 1)
-          var%h=SOLMAT(jt)%HBUB+(var%phi-SOLMAT(jt)%phie)/SOLMAT(jt)%KSAT !OGX: used in the sat-unsat interface flow
-        end where
+        !! skip will be calculated at the end of time step
+        !where (var%isat == 1)
+        !  var%h=SOLMAT(jt)%HBUB+(var%phi-SOLMAT(jt)%phie)/SOLMAT(jt)%KSAT !OGX: used in the sat-unsat interface flow
+        !end where
 
-        var%K=var%K*fzn
         !----qya- get fluxes and derivs
         ! get surface condition
         p=>SOLMAT(jt(1))
@@ -1405,8 +1417,8 @@ contains
 
 
 
-        call getfluxes(n,jt,dx,dz,vtop,vbot,var,hint,phimin,q,qya,qyb, &
-          iflux,init,getq0,getqn,dpmaxr,hqmin)
+        call getfluxes(k,n,jt,dx,dz,vtop,vbot,var,hint,phimin,q,qya,qyb, &
+          iflux,init,getq0,getqn,dpmaxr,hqmin,SOLCOL(k)%MInterface)
         ! adjust for top and bottom bdry condns
         !qprec1=qprec(it) ! may change qprec1 to maintain pond if required
         qov=zero
@@ -1794,7 +1806,7 @@ contains
         do i=1,n
 #ifdef debugMODE
           !check dy and q, and if mass balance is correct
-          if (S(i)<1e-4) then
+          if (S(i)<1e-4 .and. i > 1 .and. i < n) then
             write(IFDEBUG, "(//,4A5,17A12)") &
               "hru",	"lay",	"isat",	"imat",	"t",	"dt",	"S",	"dx(mm)",	&
               "K(mm/hr)",	"phi",	"h(mm)",	"qroot(mm)",	"qlat(mm)",	"dy",	"dy(mm)",	&
@@ -1849,6 +1861,7 @@ contains
                 v%isat=1; v%K=p%KSAT; v%phi=p%phie
               end if
             end if
+            v%h=min(S(i),1.0)**(-1/p%LAM)*p%HBUB
           else
             v%phi=v%phi+dy(i)
             if (i==1.and.ih0/=0.and.v%phi>=p%phie) v%phi=0. ! pond gone
@@ -1856,9 +1869,8 @@ contains
               v%isat=0; v%K=p%KSAT; v%phi=p%phie
               v%KS=p%KSe; v%phiS=p%phiSe
             end if
+            v%h=p%HBUB+(v%phi-p%PHIE)/p%KSAT
           end if
-
-
 
         end do
         !----- end update unknowns
@@ -1949,11 +1961,11 @@ contains
 
 
 
-  SUBROUTINE getfluxes(n,jt,dx,dz,vtop,vbot,var,hint,phimin,q,qya,qyb, &
-      iflux,init,getq0,getqn,dpmaxr,dx0)
+  SUBROUTINE getfluxes(k,n,jt,dx,dz,vtop,vbot,var,hint,phimin,q,qya,qyb, &
+      iflux,init,getq0,getqn,dpmaxr,dx0,iinter)
     IMPLICIT NONE
     LOGICAL,INTENT(IN)::init,getq0,getqn
-    INTEGER,INTENT(IN)::n,jt(n),iflux
+    INTEGER,INTENT(IN)::n,jt(n),iflux,iinter
     REAL,INTENT(IN)::dx(n),dz(n-1),dpmaxr,dx0
     TYPE(vars),INTENT(IN)::vtop,vbot
     TYPE(vars),TARGET,INTENT(IN)::var(n)
@@ -1982,7 +1994,7 @@ contains
     ! getq0       - true if q(0) required.
     ! getqn       - true if q(n) required.
     LOGICAL flag,limit
-    INTEGER::i,itmp,j,l,m
+    INTEGER::i,itmp,j,l,m,k
     REAL::dphii1,dhi,h1,h2,hi,Khi1,Khi2,phii1,q2,qya2,qyb2,y,y1,y2,w,x1,x2
     TYPE(SOILMAT),POINTER::p,pm
     TYPE(vars)::vi1,vi2
@@ -2011,94 +2023,151 @@ contains
           call flux(j,v,vp,dz(i),q(i),qya(i),qyb(i))
         else ! interface
           l=l+1; m=jt(i+1); pm=>SOLMAT(m)
-          if (init) then ! initialise
-            call hyofh(hmin,j,vi1%K,Khi1,phimin(l)) ! get phi at hmin
-            h1=v%h; h2=vp%h
-            y1=v%K*dx(i+1); y2=vp%K*dx(i)
-            ! equate fluxes (K constant) to get initial estimate of h at interface
-            hint(l)=(y1*h1+y2*h2+half*gf*(v%K-vp%K)*dx(i)*dx(i+1))/(y1+y2)
-          end if
-          hi=hint(l)
-          flag=.true.; itmp=0
-          ! iterate to get hi at interface for equal fluxes using Newton's method
-          ! get dphii1 at interface in upper layer, because of better linearity,
-          ! then convert to dhi
           halfdx1 = dx(i)*half
           halfdx2 = dx(i+1)*half
-          x1 = v%h + halfdx1
-          x2 = vp%h - halfdx2
-          if (abs(x1-x2)<(2.0*epsilon(x1)*abs(x1)+0.5*tol)) then
-            !hydrostatic
-            y1 = interf(half*(x1+x1))
+          if (iinter == 0) then
+            w=one/dz(i)
+            y = v%K ** (halfdx1*w) * vp%K ** (halfdx2*w)
+            if(y == 0.) then 
+              write(IFDEBUG, "(//,A,ES15.7,A,ES15.7)") "Error: ZERO INTERNODAL K, K1 is ",v%K," K2 is ",vp%K
+              call print_var(IFDEBUG,k,n,var,0.0,0.0,var%S*SOLMAT(jt)%WCSR,dx,q,qya,qyb)
+            endif
 
-          else
-            iter = 0
-            hi = zbrent(interf,x1,x2,tol,iter)
-            if (hi >= 1.e30) then
-              !switch to pressure based darcy eq.
-              iter = -1
-              hi = zbrent(interfh,x1,x2,tol,iter)
+            q(i)=(v%phi-vp%phi)*w+gf*y
+            if (v%isat==0) then
+              !if (v1%phi<p%phie) then
+              qya(i)=v%phiS*w+gf*v%KS*y/v%K*halfdx1*w
+            else
+              qya(i)=w
+            end if
+            if (vp%isat==0) then
+              !if (v2%phi<p%phie) then
+              qyb(i)=-vp%phiS*w+gf*vp%KS*y/vp%K*halfdx2*w
+            else
+              qyb(i)=-w
+            end if
+            !use harmonic mean directly
+            !y = v%K * vp%K * (halfdx1 + halfdx2) / (halfdx1 * vp%K + halfdx2 * v%K)
+            !use Weighted geometric mean
+
+  !
+  !            q(i) = y * (v%h - vp%h + dz(i)) / dz(i)
+  !
+  !            if (v%isat==0) then
+  !              !if (v1%phi<p%phie) then
+  !              !qya(i) = y/ dz(i) + (v%h - vp%h + dz(i)) / dz(i) * y / v%K * halfdx1/dz(i) * &
+  !              !        (- p%LAM * p%ETA) * p%KSAT / p%HBUB * (v%h/p%HBUB)**(-p%LAM * p%ETA-1)
+  !              !qya(i)=qya(i)*(-p%HBUB/p%LAM)*(v%h/p%HBUB)**(1+p%LAM)
+  !              qya(i) = v%phiS/dz(i) + gf*v%KS*y/v%K*(halfdx1/dz(i))
+  !            else
+  !              !qya(i)=y/ dz(i)*(1.- p%LAM * p%ETA) / v%K
+  !              qya(i)=1./dz(i)
+  !            end if
+  !            if (vp%isat==0) then
+  !              !qyb(i) = -y/ dz(i) + (v%h - vp%h + dz(i)) / dz(i) * y / vp%K * halfdx2/dz(i)* &
+  !              !        (- pm%LAM * pm%ETA) * pm%KSAT / pm%HBUB * (vp%h/pm%HBUB)**(-pm%LAM * pm%ETA-1)
+  !              !qyb(i)=qyb(i)*(-pm%HBUB/pm%LAM)*(vp%h/pm%HBUB)**(1+pm%LAM)
+  !              qyb(i) = vp%phiS*rdz+gf*vp%KS
+  !            else
+  !              !qyb(i)=-y/ dz(i)* (1.- pm%LAM * pm%ETA) / vp%K
+  !              qyb(i)= -1. / dz(i)
+  !            end if
+
+            cycle
+          else 
+            if (init) then ! initialise
+              call hyofh(hmin,j,vi1%K,Khi1,phimin(l)) ! get phi at hmin
+              h1=v%h; h2=vp%h
+              y1=v%K*dx(i+1); y2=vp%K*dx(i)
+              ! equate fluxes (K constant) to get initial estimate of h at interface
+              hint(l)=(y1*h1+y2*h2+half*gf*(v%K-vp%K)*dx(i)*dx(i+1))/(y1+y2)
+            end if
+            hi=hint(l)
+            flag=.true.; itmp=0
+            ! iterate to get hi at interface for equal fluxes using Newton's method
+            ! get dphii1 at interface in upper layer, because of better linearity,
+            ! then convert to dhi
+            x1 = v%h + halfdx1
+            x2 = vp%h - halfdx2
+            if (abs(x1-x2)<(2.0*epsilon(x1)*abs(x1)+0.5*tol)) then
+              !hydrostatic
+              hi = half*(x1+x1)
+              !y1 = interf(half*(x1+x1))
+
+            else
+
+              iter = 0
+              hi = zbrent(interf,x1,x2,tol,iter)
               if (hi >= 1.e30) then
-                write (slogfile, *)
-                write (slogfile, *) "Could not find solution for interface flow"
+                !switch to pressure based darcy eq.
+                iter = -1
+                hi = zbrent(interfh,x1,x2,tol,iter)
+                if (hi >= 1.e30) then
+                  write (slogfile, *)
+                  write (slogfile, *) "Could not find solution for interface flow"
 
-                write (slogfile, *) " x1,x2,iter", x1,x2,iter
-                write (slogfile, *) " lay,h1,h2,dx1,dx2", i, v%h, vp%h, dx(i), dx(i+1)
+                  write (slogfile, *) " x1,x2,iter", x1,x2,iter
+                  write (slogfile, *) " lay,h1,h2,dx1,dx2", i, v%h, vp%h, dx(i), dx(i+1)
 
-                write (slogfile,"(//,3A10, 5A15)")  "HRU","time","isat","dx","pressure","saturation","hydraulicK", "phi"
-                m=min(i+1,n)
-                do l=1, m
-                  j=jt(l)
-                  write (slogfile,"(I10,F10.0,I10,5E15.7)")  0,0.0,var(l)%isat,dx(l), &
-                    var(l)%h, &
-                    var(l)%S, &
-                    var(l)%K, &
-                    var(l)%phi
-                enddo
+                  write (slogfile,"(//,3A10, 5A15)")  "HRU","time","isat","dx","pressure","saturation","hydraulicK", "phi"
+                  m=min(i+1,n)
+                  do l=1, m
+                    j=jt(l)
+                    write (slogfile,"(I10,F10.0,I10,5E15.7)")  0,0.0,var(l)%isat,dx(l), &
+                      var(l)%h, &
+                      var(l)%S, &
+                      var(l)%K, &
+                      var(l)%phi
+                  enddo
 
-                call USTOP("Could not find solution for interface flow")
+                  call USTOP("Could not find solution for interface flow")
+
+                endif
+                !calculate the composite w
+
+                !y = 0.5*(y1 + y2) * dz(i) / (v%h - vp%h + dz(i)) - vp%K
+                !w = y / (v%K-vp%K)
+                !write(IFDEBUG, *) "  Composite W: ", w
+                !if (w < 0.) then
+                !  w = 0.5
+                !end if
+                !!calculate the derivs
+                !y = 1.0/dz(i)
+                !if (v%isat==0) then
+                !  !if (v1%phi<p%phie) then
+                !
+                !  qya(i)=v%phiS*y+gf*w*v%KS
+                !  qya(i)=qya(i)*(-p%HBUB/p%LAM)*(v%h/p%HBUB)**(1+p%LAM)
+                !else
+                !  qya(i)=y * (1.- p%LAM * p%ETA) / v%K
+                !end if
+                !if (vp%isat==0) then
+                !  !if (v2%phi<p%phie) then
+                !  qyb(i)=-vp%phiS*y+gf*(1.-w)*vp%KS
+                !  qyb(i)=qyb(i)*(-pm%HBUB/pm%LAM)*(vp%h/pm%HBUB)**(1+pm%LAM)
+                !else
+                !  qyb(i)=-y* (1.- pm%LAM * pm%ETA) / vp%K
+                !end if
+                !
+                !go to 101
 
               endif
-              !!calculate the composite w
-              !y = 0.5*(y1 + y2) * dz(i) / (v%h - vp%h + dz(i)) - vp%K
-              !w = y / (v%K-vp%K)
-              !if (w < 0.) then
-              !  w = 0.5
-              !end if
-              !write(IFDEBUG, *) "  Composite W: ", w
-              !!calculate the derivs
-              !y = 1.0/dz(i)
-              !if (v%isat==0) then
-              !  !if (v1%phi<p%phie) then
-              !  qya(i)=v%phiS*y+gf*w*v%KS
-              !else
-              !  qya(i)=y
-              !end if
-              !if (vp%isat==0) then
-              !  !if (v2%phi<p%phie) then
-              !  qyb(i)=-vp%phiS*y+gf*(1.-w)*vp%KS
-              !else
-              !  qyb(i)=-y
-              !end if
-              !
-              !go to 101
-
             endif
-          endif
 
 
-          ! adjust derivs
-          y1 = interf(hi)
-          if (qya2-qyb(i) == 0.) then
-            y1 = interf(hi*0.99)
-          endif
-          y=1./(qya2-qyb(i))
-          qya(i)=qya(i)*qya2*y; qyb(i)=-qyb2*qyb(i)*y
+            ! adjust derivs
+            y1 = interf(hi)
+            if (qya2-qyb(i) == 0.) then
+              y1 = interf(hi*0.99)
+            endif
+            y=1./(qya2-qyb(i))
+            qya(i)=qya(i)*qya2*y; qyb(i)=-qyb2*qyb(i)*y
 
-          !q(i)=q(i)+qyb(i)*dphii1
- 101      hint(l)=hi
+            !q(i)=q(i)+qyb(i)*dphii1
+101         hint(l)=hi
+          endif !interface method
         end if  !if interface
-      end if  !if getflux
+      end if    !if getflux
     end do
     v=>var(n)
     if (iflux==1.or.v%isat/=0) then ! get bottom flux if required
@@ -2967,7 +3036,7 @@ contains
     implicit none
     integer, intent(in)		::	ifout, k, n
     real, intent(in)		::	t, gw
-    type(vars), intent(inout)	::	var(n)
+    type(vars), intent(in)	::	var(n)
     real, optional, intent(in)		::	wc(n), dx(n), q(n), slat(n),srt(n)
 
     integer			::	i
@@ -3711,6 +3780,7 @@ subroutine readsoilmat
 
     call print_mat(i)
   enddo
+  write(slogfile, "(A,1ES12.5)") "Lowest hydrualic conductivity value is ", hydrcmin
   close(sfile)
 end subroutine readsoilmat
 
