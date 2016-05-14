@@ -1,0 +1,174 @@
+SUBROUTINE nup
+ 
+! Code converted using TO_F90 by Alan Miller
+! Date: 2015-03-30  Time: 03:56:01
+
+!!    ~ ~ ~ PURPOSE ~ ~ ~
+!!    This subroutine calculates plant nitrogen uptake
+
+!!    ~ ~ ~ INCOMING VARIABLES ~ ~ ~
+!!    name        |units          |definition
+!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+!!    bio_ms(:)   |kg/ha          |land cover/crop biomass (dry weight)
+!!    bio_n1(:)   |none           |1st shape parameter for plant N uptake
+!!                                |equation
+!!    bio_n2(:)   |none           |2nd shape parameter for plant N uptake
+!!                                |equation
+!!    bioday      |kg             |biomass generated on current day in HRU
+!!    fixn        |kg N/ha        |amount of nitrogen added to soil via fixation
+!!                                |on the day in HRU
+!!    icr(:)      |none           |sequence number of crop grown within the
+!!                                |current year
+!!    idc(:)      |none           |crop/landcover category:
+!!                                |1 warm season annual legume
+!!                                |2 cold season annual legume
+!!                                |3 perennial legume
+!!                                |4 warm season annual
+!!                                |5 cold season annual
+!!                                |6 perennial
+!!                                |7 trees
+!!    idplt(:)    |none           |land cover code from crop.dat
+!!    ihru        |none           |HRU number
+!!    nro(:)      |none           |sequence number of year in rotation
+!!    phuacc(:)   |none           |fraction of plant heat units accumulated
+!!    plantn(:)   |kg N/ha        |amount of nitrogen in plant biomass
+!!    pltnfr(1,:) |kg N/kg biomass|nitrogen uptake parameter #1: normal fraction
+!!                                |of N in crop biomass at emergence
+!!    pltnfr(3,:) |kg N/kg biomass|nitrogen uptake parameter #3: normal fraction
+!!                                |of N in crop biomass at maturity
+!!    sol_nly(:)  |none           |number of soil layers in profile
+!!    sol_no3(:,:)|kg N/ha        |amount of nitrogen stored in the
+!!                                |nitrate pool.
+!!    sol_z(:,:)  |mm             |depth to bottom of soil layer
+!!    n_updis     |none           |nitrogen uptake distribution parameter
+!!                                |This parameter controls the amount of
+!!                                |nitrogen removed from the different soil
+!!                                |layers by the plant. In particular, this
+!!                                |parameter allows the amount of nitrogen
+!!                                |removed from the surface layer via plant
+!!                                |uptake to be controlled. While the relation-
+!!                                |ship between UBN and N removed from the
+!!                                |surface layer is affected by the depth of the
+!!                                |soil profile, in general, as UBN increases the
+!!                                |amount of N removed from the surface layer
+!!                                |relative to the amount removed from the entire
+!!                                |profile increases
+!!    uobn        |none           |nitrogen uptake normalization parameter
+!!                                |This variable normalizes the nitrogen uptake
+!!                                |so that the model can easily verify that
+!!                                |upake from the different soil layers sums to
+!!                                |1.0
+!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+!!    ~ ~ ~ OUTGOING VARIABLES ~ ~ ~
+!!    name        |units         |definition
+!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+!!    nplnt(:)    |kg N/ha       |plant uptake of nitrogen in HRU for the day
+!!    plantn(:)   |kg N/ha       |amount of nitrogen in plant biomass
+!!    pltfr_n(:)  |none          |fraction of plant biomass that is nitrogen
+!!    sol_no3(:,:)|kg N/ha       |amount of nitrogen stored in the nitrate pool
+!!                               |in the layer
+!!    strsn(:)    |none          |fraction of potential plant growth achieved on
+!!                               |the day where the reduction is caused by
+!!                               |nitrogen stress
+!!    uno3d       |kg N/ha       |plant nitrogen deficiency for day in HRU
+!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+!!    ~ ~ ~ LOCAL DEFINITIONS ~ ~ ~
+!!    name        |units         |definition
+!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+!!    gx          |mm            |lowest depth in layer from which nitrogen
+!!                               |may be removed
+!!    icrop       |none          |land cover code
+!!    ir          |none          |flag to denote bottom of root zone reached
+!!    j           |none          |HRU number
+!!    l           |none          |counter (soil layer)
+!!    un2         |kg N/ha       |ideal plant nitrogen content
+!!    unmx        |kg N/ha       |maximum amount of nitrogen that can be
+!!                               |removed from soil layer
+!!    uno3l       |kg N/ha       |amount of nitrogen removed from soil layer
+!!    ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+!!    ~ ~ ~ SUBROUTINES/FUNCTIONS CALLED ~ ~ ~
+!!    Intrinsic: Exp, Min
+!!    SWAT: nfix, nuts
+
+!!    ~ ~ ~ ~ ~ ~ END SPECIFICATIONS ~ ~ ~ ~ ~ ~
+
+use parm
+
+INTEGER :: j, icrop, l, ir
+REAL :: un2, unmx, uno3l, gx
+
+j = 0
+j = ihru
+
+tno3 = 0.
+DO l = 1, sol_nly(j)
+  tno3 = tno3 + sol_no3(l,j)
+END DO
+tno3 = tno3 / n_reduc(j)
+up_reduc = tno3 / (tno3 + EXP(1.56 - 4.5 * tno3))
+
+icrop = idplt(j)
+pltfr_n(j) = (pltnfr(1,icrop) - pltnfr(3,icrop)) * (1. - phuacc(j)  &
+    / (phuacc(j) + EXP(bio_n1(icrop) - bio_n2(icrop) *  &
+    phuacc(j)))) + pltnfr(3,icrop)
+
+un2 = 0.
+un2 = pltfr_n(j) * bio_ms(j)
+IF (un2 < plantn(j)) un2 = plantn(j)
+uno3d = un2 - plantn(j)
+uno3d = MIN(4. * pltnfr(3,icrop) * bioday, uno3d)
+
+strsn(j) = 1.
+ir = 0
+IF (uno3d < 1.e-6) RETURN
+
+DO l = 1, sol_nly(j)
+  IF (ir > 0) EXIT
+  
+  gx = 0.
+  IF (sol_rd <= sol_z(l,j)) THEN
+    gx = sol_rd
+    ir = 1
+  ELSE
+    gx = sol_z(l,j)
+  END IF
+  
+  unmx = 0.
+  uno3l = 0.
+  unmx = uno3d * (1. - EXP(-n_updis * gx / sol_rd)) / uobn
+  uno3l = MIN(unmx - nplnt(j), sol_no3(l,j))
+!uno3l = up_reduc * uno3l
+  nplnt(j) = nplnt(j) + uno3l
+  sol_no3(l,j) = sol_no3(l,j) - uno3l
+END DO
+IF (nplnt(j) < 0.) nplnt(j) = 0.
+
+!! if crop is a legume, call nitrogen fixation routine
+select case (idc(idplt(j)))
+case (1,2,3)
+CALL nfix
+END select
+
+nplnt(j) = nplnt(j) + fixn
+plantn(j) = plantn(j) + nplnt(j)
+
+!! compute nitrogen stress
+select case (idc(idplt(j)))
+case (1,2,3)
+strsn(j) = 1.
+case default
+CALL nuts(plantn(j),un2,strsn(j))
+IF (uno3d > 1.e-5) THEN
+  xx = nplnt(j) / uno3d
+ELSE
+  xx = 1.
+END IF
+strsn(j) = AMAX1(strsn(j), xx)
+strsn(j) = AMIN1(strsn(j), 1.)
+END select
+
+RETURN
+END SUBROUTINE nup
